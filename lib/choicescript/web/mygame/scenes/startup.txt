@@ -1,0 +1,154 @@
+*title Poisonous Intent
+*author BananaProductions
+
+*scene_list
+    csideimg_tumblr_inline_o5uwrac8ol1tlmnj9_5002
+    csideimg_tumblr_inline_o5uwrac8ol1tlmnj9_500
+    csideimg_cside_logo_32
+
+*create name "Darkthorrn"
+*create time 0
+
+*gosub_scene csideimg_tumblr_inline_o5uwrac8ol1tlmnj9_500
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*fake_choice
+	#current scene?
+		*goto_scene bar
+	#quickstart?
+		*goto_scene bar
+	#start at the beginning
+
+
+*label start
+Before you start our adventure we need your name...
+
+[i]Yes your name...[/i]
+
+Because we've been watching you...
+
+[i]Yes, we've been watching you...[/i]
+
+Watching you for such a long time...
+
+[i]Such a long time, but we don't know your name...[/i]
+
+Yes, we don't know your name...
+
+[i]And we must know your name...[/i]
+
+Yes, we must...
+
+[i]Because It really isn't polite if we don't know your name...[/i]
+
+No, it's not very polite...
+
+[i]And mother doesn't like us being not being polite...[/i]
+
+No she doesn't...
+
+[i]Because we cant be polite if we don't know your name...[/i]
+
+And we can't please you if we can't be polite...
+
+[i]And we can't please mother if we can't please you...[/i]
+
+But we can't please all the people all the time...
+
+[i]No, we can't please all the people all the time...[/i]
+
+Only some of the people, some of the time...
+
+[i]That's what mother said...[/i]
+
+Mother was right...
+
+[i]Mother is always right...[/i]
+
+Yes...
+
+[i]And mother is always waiting...[/i]
+
+And mother hates waiting...
+
+[i]So hurry up..[/i]
+
+*label namecheck
+Yes hurry up and tell us, oh high and mighty adventurer...
+
+[i]Yes tell us...[/i]
+
+What is your name?
+
+*input_text name
+*set name "$!{name}"
+
+[i]So you're called ${name} are you?[/i]
+
+That's not very high and mighty is it?
+
+[i]No it isn't....[/i]
+
+${name}'s not much of a name is it...
+
+[i]No it isn't....[/i]
+
+So are you sure you want to be called ${name}?
+
+[i]Are you sure, ${name}?[/i]
+
+Because if you don't then you can be called something else you know?
+
+[i]Something else other than ${name}?[/i]
+
+Yes...
+
+[i]So are you sure you want to be called ${name}?[/i]
+
+*fake_choice
+	#No, I think I want to be called something else...
+		[i]Okay ${name}, so hurry up and choose another name...[/i]
+		*line_break
+		*line_break
+		*goto namecheck
+	#Yes, I'm proud of being called ${name}!
+
+[i]Well it'll be your funeral ${name}...[/i]
+*line_break
+*line_break
+Yes, your funeral ${name}...
+
+[i]Mother likes a funeral...[/i]
+
+Yes, she does...
+
+[i]Anyway ${name}, off you go then...[/i]
+
+Yes, ${name}, off you go... but we'll see you soon...
+
+[i] Yes, very soon...[/i]
+*page_break START GAME
+*goto_scene bar

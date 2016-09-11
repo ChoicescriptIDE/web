@@ -1,0 +1,28 @@
+As the barge slips silently down the river, making its way to the region's capital through the cold, early morning mist, you wonder (for the hundredth time) how exactly you came to find yourself in your current predicament.
+
+Your story is a common one. On a good day, you're a down-on-your-luck would-be adventurer... on the rest of them (which seems to be most days at the moment) you're a dead beat, struggling to eke out a meagre existence in the cesspit of a town that you call home.
+
+No finances, no friends, no food, no future. But apparently not without some fortune.
+
+A chance meeting led to an opportunity to do some work in a city where no one knows you. Where you never have to return again to face the consequences of your actions. And after being plied with more than a few drinks and treated to the biggest meal that you've had in months you were put on a working barge, one of a hundred that seem to travel up and down the waterways at this time of year.
+
+That was a little over two days ago. 
+
+That's two whole days and nights of getting strange looks from the crew, of getting knowing looks from the captain and of getting no looks at all from a scarred brute of a man who seemed to have been put on the barge at the same time as you. And who also gets strange looks from the crew. And knowing looks from the captain.
+
+That's two whole days and nights of wondering quite what is going to be expected of you. 
+
+Two whole days and nights for the creeping sense of dread to build inside of you. 
+
+And two whole days and nights of wondering exactly why a stranger with seemingly no skills was asked to go to a city he's never seen before, to meet someone he's never met before, in order to do something he's presumably never done before. What could possibly go wrong?
+
+Suddenly a cry from the crew rudely snaps you back out of your day dream...
+*page_break "Approaching the dock Captain..."
+*goto_scene dock
+
+
+
+
+
+*comment ---- old storyline ----
+*comment You arrive at the dock. Leave the barge. You are met by Morgan and his thugs. Morgan tells you what you are expected to do. You are introduced to Boritz (NPC) who is to protect you until you reach the noble's house. Option (textbox) to check if this is first playthrough? You say you don't want to go with Boritz... Morgan asks who else you know in the city... (chance to give NPC names). mission start - with Boritz OR with you leaving to find new NPC

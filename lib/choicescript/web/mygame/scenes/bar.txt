@@ -1,0 +1,33 @@
+As you step through into the gloom, the first thing that hits you is the dark fetid air; thick, musty and wet, so much so that if feels like you have to drink the air rather than breathe it in.
+
+Then your ears are assaulted by an assorted cacophony of screams and howls, intermingled with cruel laughter, evil screeching, foul cursing and repeated threats of grievous bodily violence.
+
+Finally your eyes start to accustom themselves to the semi-darkness and you start to feel the hairs on your neck standing on end as if you expect something to rush out and attack at any moment.
+
+Then... you hear a shout!
+
+"$!!{name}!"
+
+From a dark corner of the Hobbit's armpit, the most wretched tavern of villains and scummery there is, a group beckons you over to come join them. 
+
+'${name}, where have you been? Come on and grab an ale... You've got about a barrel and a half's worth of catching up to do!"
+
+*page_break You spend the evening drinking late into the night before eventually heading for home...
+*goto_scene plot
+
+
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+

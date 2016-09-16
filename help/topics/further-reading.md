@@ -1,6 +1,6 @@
 ## Further Reading
 
-The CSIDE help docs give you a general overview of the features of the application and basics of ChoiceScript, but before long you'll no doubt want answers to even more questions, questions which we unfortunately don't have the time nor expertise to answer here. This page is a 
+The CSIDE help docs give you a general overview of the features of the application and basics of ChoiceScript, but before long you'll no doubt want answers to even more questions, questions which we unfortunately don't have the time nor expertise to answer here. This page is a
 modest collection of some incredibly useful and informative links we've compiled that should help you on your way to finding the answers to those questions.
 
 
@@ -13,10 +13,14 @@ The official introduction, documentation and tutorial for ChoiceScript.
 **[Choice of Games Blog](https://www.choiceofgames.com/blog/ "Choice of Games - Blog")**
 
 Contains lots of useful articles on game structure and design.
-  
+
 **[ChoiceScript Repository](https://www.github.com/dfabulich/choicescript "Github - Choicescript")**
 
 The Github Repository for the ChoiceScript code. You can download the latest standalone version of ChoiceScript on this page by clicking 'Clone or download' -> 'Download zip'.
+
+**[Game Outlines - Pitching Guide](https://docs.google.com/document/d/1D0tAZeLkjTz54a54KxI1EYNO96IpduYE9coLgPkxs98/edit?pref=2&pli=1 "Writing for Choice of Games - Game Outlines")**
+
+An official document from Choice of Games advising on their desired outline structure for official COG label game pitches. 
 
 ### Community Resources
 

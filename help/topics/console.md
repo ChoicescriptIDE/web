@@ -70,7 +70,7 @@ Activate the named achievement as if that achievement has been earned / awarded 
 
 **\*setref**
 
-A legacy command used to indirectly refer to a variable via the value of another variable. The same effect can now be achieved with the syntax *set {my_var}. For example, if the value of **my_var** was "strength" *setref my_var 5 or *set {my_var} 5 would actually attempt to set the value of the variable called **strength** to 5, not the value of my_var, which would remain "strength".
+A legacy command used to indirectly refer to a variable via the value of another variable. The same effect can now be achieved with the syntax *set {my_var}. For example, if the value of **my_var** was "strength" *setref my_var 5 or *set {my_var} 5 would actually attempt to set the value of the variable called **strength** to 5, not the value of my_var itself, which would remain "strength".
 
 **\*restart**
 

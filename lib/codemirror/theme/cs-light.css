@@ -15,7 +15,7 @@
 .cm-s-cs-light span.cm-meta {color: #555;}
 .cm-s-cs-light span.cm-link { color: #3a3; }
 
-.cm-s-cs-light span.cm-spell-error::before { border-bottom: 1px dashed red; }
+.cm-s-cs-light span.cm-spell-error::after { border-bottom: 1px dashed red; }
 
 .cm-s-cs-light .CodeMirror-activeline-background {background: #e8f2ff !important;}
 .cm-s-cs-light .CodeMirror-error-background { background-color: rgb(250, 215, 215); }

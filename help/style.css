@@ -50,6 +50,13 @@ h1, h2, h3 {
     border: solid lightgrey;
     border-width: 0px 0px 1px 0px;
     color: rgb(73, 73, 73);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    cursor: default;
 }
 p {
     -webkit-margin-before: .5em;
@@ -222,6 +229,12 @@ pre {
     margin: 2.5px;
     font-size: 12px;
     cursor: pointer;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 .breadcrumbs > *:not(:first-child):before {
     content: '> '

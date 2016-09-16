@@ -506,7 +506,8 @@ a, button, div, span {
 }
 
 #cs-console > ul > li > span.error {
-    color: red;
+    color: #d23434;
+    font-weight: bold;
 }
 
 .cm-s-cs-dichromatic ~ #cs-console > ul > li > span.error {
@@ -1484,15 +1485,24 @@ a, button, div, span {
 
 span.cm-spell-error {
     position: relative;
+    /* white-space: pre; */
 }
 
-span.cm-spell-error::before {
+span.cm-spell-error::after {
+  position: absolute;
+  content: " ";
+  left: 0px;
+  top: 0px;
+  width: 100%;
+}
+
+/* span.cm-spell-error::before {
     position: absolute;
     top: 0px;
     content: " ";
     width: 100%;
-    /* border-bottom set in individual CodeMirror theme css files */
-}
+    /* border-bottom set in individual CodeMirror theme css files
+}*/
 
 .no-select {
 	-webkit-touch-callout: none;
@@ -1692,6 +1702,9 @@ span.cm-spell-error::before {
 	-webkit-flex: 2;
 	-ms-flex: 2;
 	flex: 2;
+}
+.CodeMirror-line {
+  white-space: pre-line; /* helps prevent issues with words at the beginning of a wrapped line not being highlighted as bad-spelling when necessary */
 }
 .CodeMirror-scroll {
 	position: absolute; /* necessary for 100% inside flex */

@@ -883,7 +883,7 @@ function IDEViewModel() {
           console.log(err);
         } else {
           dirty(false);
-          cmDoc.markClean()
+          cmDoc.markClean();
           fileStats.mtime ? fileStats.mtime = new Date() : fileStats.modifiedAt = new Date();
         }
         saving(false);
@@ -1208,15 +1208,6 @@ function IDEViewModel() {
 
   var CONST_IMG_PREFIX = "csideimg_";
 
-  //TEST FUNCTIONALITY
-  self.cse = {
-    commands: {
-      create_array: function() {
-        console.log(5);
-      }
-    }
-  };
-
   //INSTANCE VARIABLES
   var user = {
     "name": usingNode ? require('username').sync() : 'Dropbox User',
@@ -1378,21 +1369,6 @@ function IDEViewModel() {
     );
   }
 
-  var appMenuOptions = ko.observableArray([
-    new menuOption("Create new project", function(menu) {
-      self.createProject();
-    }),
-    new menuOption("Open scenes", function(menu) {
-      self.openFileBrowser();
-    })
-  ]);
-  if (usingNode) {
-    appMenuOptions.push(new menuOption("Quit", function(menu) {
-      win.close();
-    }));
-  }
-
-
   if (platform === "mac_os") { //platform !== "web-dropbox"
     var nativeMenuBar = new nw.Menu({
       type: "menubar"
@@ -1401,22 +1377,6 @@ function IDEViewModel() {
       nativeMenuBar.createMacBuiltin("CSIDE");
     }
     win.menu = nativeMenuBar;
-    (function() {
-      var appMenu = new nw.Menu();
-      appMenu.getTarget = null;
-      var options = appMenuOptions();
-      for (var i = 0; i < options.length; i++) {
-        appMenu.append(new nw.MenuItem({
-          label: options[i].getLabel(),
-          click: options[i].doAction.bind(null, appMenu)
-        }));
-      }
-      win.menu.insert(new nw.MenuItem({
-        label: "File",
-        submenu: appMenu
-      }), platform === "mac_os" ? 1 : 0);
-    })();
-
     (function() {
       var projectMenu = new nw.Menu();
       projectMenu.getTarget = selectedProject;
@@ -1570,8 +1530,12 @@ function IDEViewModel() {
       switch (platform) {
         //WRITE
         case "web-dropbox":
-          db.writeFile(path, data, {}, function(err, fileStats) {
-            callback(normalizeError(err), fileStats);
+          db.filesUpload({path: path, contents: data, mode:{ ".tag": "overwrite" }, autorename: false})
+          .then(function(response) {
+            callback(null);
+          })
+          .catch(function(err) {
+            callback(normalizeError(err));
           });
           break;
         default:
@@ -1592,9 +1556,23 @@ function IDEViewModel() {
       switch (platform) {
         //WRITE
         case "web-dropbox":
-          db.readFile(path, {}, function(err, data, fileStats) {
-            callback(normalizeError(err), data, fileStats);
-          });
+          db.filesDownload({path:path})
+            .then(function(fileData) {
+              var reader = new FileReader()
+              reader.addEventListener("loadend", function() {
+                if (reader.result) {
+                  console.log(reader.result);
+                  callback(null, new TextDecoder("utf-8").decode(reader.result));
+                }
+                else {
+                  // error
+                }
+              }); // fh.reader.result
+              reader.readAsArrayBuffer(fileData.fileBlob);
+            })
+            .catch(function(error) {
+              callback(normalizeError(error));
+            });
           break;
         default:
           fs.readFile(path, {
@@ -1655,9 +1633,14 @@ function IDEViewModel() {
     "readDir": function(path, callback) {
       switch (platform) {
         case "web-dropbox":
-          db.readdir(path, {}, function(err, filePathArray, fileStatArray) {
-            callback(normalizeError(err), filePathArray, fileStatArray)
-          });
+          db.filesListFolder({path:path})
+            .then(function(response) {
+              // standardize path and folder properties
+              callback(null, response.entries.map(function(item) { item.path = item.path_lower; item.isFolder = (item[".tag"] == "folder"); return item; }));
+            })
+            .catch(function(error) {
+              callback(normalizeError(err));
+            });
           break;
         default:
           fs.readdir(path, function(err, filePathArray) {
@@ -1687,13 +1670,12 @@ function IDEViewModel() {
     "stat": function(path, callback) {
       switch (platform) {
         case "web-dropbox":
-          db.stat(path, {
-            deleted: false,
-            removed: false,
-            "deleted": false,
-            "removed": false
-          }, function(err, fileStats) {
-            callback(normalizeError(err), fileStats);
+          db.filesGetMetadata({path: '/start_me_up.txt'})
+          .then(function(response) {
+            callback(null, {mtime: new Date(response.client_modified) })
+          })
+          .catch(function(err) {
+            callback(normalizeError(err));
           });
           break;
         default:
@@ -1742,6 +1724,8 @@ function IDEViewModel() {
       }
     }
   }
+    
+  
   var normalizeError = function(err) {
     if (!err) return null;
     if (typeof err.message == 'undefined') {
@@ -1851,9 +1835,19 @@ function IDEViewModel() {
   self.noteFactory = notification;
 
   //iniate other libraries:
-  var db = new Dropbox.Client({
-    key: "hnzfrguwoejpwbj"
-  });
+  if (platform == "web-dropbox") {
+    if (!!utils.parseQueryString(window.location.hash).access_token) {
+      var db = new Dropbox({ accessToken: utils.parseQueryString(window.location.hash).access_token });
+      db.setClientId("hnzfrguwoejpwbj");
+    }
+    else {
+      var db = new Dropbox({ clientId: "hnzfrguwoejpwbj" });
+      var authUrl = db.getAuthenticationUrl(window.location);
+      window.location = authUrl;
+    }
+  }
+
+  window.db = db;
 
   var dropboxAuthorised = ko.observable(false);
   var typo = new Typo("", "", "", {
@@ -2130,6 +2124,7 @@ function IDEViewModel() {
 
   //define the editor instances and apply behaviour tweaks
   var editor = CodeMirror.fromTextArea(document.getElementById("code-textarea"), {
+    //inputStyle: "contenteditable", accessibility
     mode: {
       name: "choicescript",
       version: 2,
@@ -2401,11 +2396,18 @@ function IDEViewModel() {
       "getHeaderTitle": "Example Projects"
     });
 
-    self.cs_examples = [{
-      title: "Interactive CSIDE Tutorial",
-      desc: "A great starting point tutorial - developed by Vendetta. Useful for those new to both Choicescript and the Choicescript IDE.",
-      path: "cs_examples/CSIDE Tutorial/"
-    }]
+    self.cs_examples = [
+      {
+        title: "Interactive CSIDE Tutorial",
+        desc: "A great starting point tutorial - developed by Vendetta. Useful for those new to both Choicescript and the Choicescript IDE.",
+        path: "cs_examples/CSIDE Tutorial/"
+      },
+      {
+        title: "ChoiceScript Basics Tutorial",
+        desc: "A simple tutorial template by FairyGodfeather. This example project is designed to get you started with handling name, gender and relationship stats in your ChoiceScript games. A great starting point for any new project!",
+        path: "cs_examples/Basics Tutorial/"
+      },
+    ]
 
     self.cloneExample = function(data) {
       fh.selectFolder(function(newPath) {
@@ -2890,7 +2892,9 @@ function IDEViewModel() {
                     });
                     var eventHandlers = {
                       progress: function(val) {
-                        status.setProgress(val);
+                        if (!isNaN(val)) {
+                         status.setProgress(val);
+                        }
                       },
                       error: function(title, msg) {
                         notification(title, msg, {
@@ -3315,7 +3319,8 @@ function IDEViewModel() {
   }, this);
   self.init = function() {
     if (!usingNode) {
-      db.authenticate({
+      user.name = "dropbox-user";
+    /*  db.authenticate({
         interactive: true
       }, function(error) {
         if (error) {
@@ -3330,7 +3335,7 @@ function IDEViewModel() {
             }
           });
         }
-      });
+      });*/
     }
     if (config.settings.app.persist) {
       var thisProjectData = [];
@@ -4407,7 +4412,7 @@ function IDEViewModel() {
       var self = this;
       var visible = ko.observable(false);
       var loading = ko.observable(false);
-      var curPath = ko.observable("/");
+      var curPath = ko.observable("");
       var buttonText = ko.observable("Open");
       var browserTitle = ko.observable("Open scenes");
       var stateDesc = ko.observable("");
@@ -4439,7 +4444,7 @@ function IDEViewModel() {
 
       function fileFolderItem(data) {
         var thisFileFolder = this;
-        thisFileFolder.is_folder = data.isFolder;
+        thisFileFolder.is_folder = (data[".tag"] == "folder");
         thisFileFolder.name = data.name;
         thisFileFolder.path = data.path;
         thisFileFolder.icon = data.icon ? data.icon : data.isFolder ? 'fa fa-folder-o fa-lg' : 'fa fa-file-o fa-lg';
@@ -4559,7 +4564,7 @@ function IDEViewModel() {
         self.filesAndFolders([]);
         self.selection([]);
         var position = 0;
-        db.readdir(path, {}, function(err, list, folderStats, listStats) {
+        fh.readDir(path, function(err, listStats) {
           if (err) {
             error(true);
             stateDesc("Failed to connect. Please check your internet connection.");
@@ -4592,7 +4597,7 @@ function IDEViewModel() {
       }
       this.selectFolders = function(callback) {
         self.selectingFolder = true;
-        self.open("/", callback);
+        self.open("", callback);
       }
       this.executeTask = function() {
         /* 				var fullList = self.filesAndFolders();
@@ -4689,14 +4694,6 @@ function IDEViewModel() {
 
     var toolbarMenus = ko.observableArray(
       [
-        new toolbarMenu({
-          title: "<span title='File' class='fa fa-bars'>",
-          active: true,
-          options: function() {
-            return appMenuOptions();
-          },
-          target: null
-        }),
         new toolbarMenu({
           title: "<span title='Project' class='fa fa-folder-open-o '>",
           active: self.getSelectedProject,

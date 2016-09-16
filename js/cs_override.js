@@ -90,7 +90,6 @@ if (scope.cside.getPlatform() != 'web-dropbox') {
 	 	window.$('body').on('click', 'a', function(e) {
 			e.preventDefault();
 			if ($(this).hasClass('alertify-button')) return false;
-   alert("fired");
 			scope.gui.Shell.openExternal(this.href);
 			return false;
 		});

@@ -109,6 +109,7 @@
         $.get("home.html")
           .done(function(data) {
             $("#content").html(data);
+            $('body a').attr("draggable", false); // disallow link 'drag'
           })
           .fail(function() {
             $("#content").html("<h3>Error: Failed to load help document</h3>");
@@ -133,6 +134,7 @@
               else {
                 $("#content").html(data);
               }
+              $('body a').attr("draggable", false); // disallow link 'drag'
             })
             .fail(function() {
               $("#content").load( "404.html", function( response, status, xhr ) {

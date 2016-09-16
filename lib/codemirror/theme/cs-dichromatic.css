@@ -30,7 +30,7 @@
 .cm-s-cs-dichromatic span.cm-variable-2 { color: #e0e; }
 .cm-s-cs-dichromatic span.cm-variable-3 { color: #ccc; }
 .cm-s-cs-dichromatic span.cm-error      { color: #9d1e15; }
-.cm-s-cs-dichromatic span.cm-spell-error::before { border-bottom: 1px dashed yellow; }
+.cm-s-cs-dichromatic span.cm-spell-error::after { border-bottom: 1px dashed yellow; }
 
 .cm-s-cs-dichromatic .CodeMirror-activeline-background {background: #013461 !important;}
 .cm-s-cs-dichromatic .CodeMirror-error-background { background-color: rgb(168, 66, 83); }

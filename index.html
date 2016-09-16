@@ -179,7 +179,7 @@
 					<div id="tabs" data-bind="tabs: { refreshOn: tabs }">
 						<ul data-bind="style: { backgroundColor: getUIColour(-10) }" class="col-anim">
 							<!-- ko foreach: tabs -->
-								<li data-bind="attr: { 'aria-controls': id }, visible: visible">
+								<li data-bind="attr: { 'aria-controls': id, title: title }, visible: visible">
 									<a draggable="false" data-bind="attr: { title: title, href: '#' + id, class: 'col-anim ui-tabs-anchor ' + iconClass }, style: { backgroundColor: $root.getUIColour(-15), color: $root.getUIColour(-65) }"></a>
 								</li>
 							<!-- /ko -->
@@ -190,7 +190,7 @@
                                     <div class="no-select panel-header col-anim" data-bind="visible: showTitle, text: getHeaderTitle, style: { backgroundColor: $root.getUIColour(-8) }"></div>
     								<!-- ko if: href != '' -->
                                         <div class="iframe-wrap">
-    									    <iframe data-bind="attr { src: href, visible: href }"></iframe>
+    									    <iframe data-bind="attr { src: href, title: title, name: title, visible: href }"></iframe>
                                         </div>
     								<!-- /ko -->
                                     <!-- ko if: id == 'issues' -->
@@ -301,25 +301,61 @@
     <input style="display:none;" id="saveSceneTo" type="file" nwsaveas=".txt" />
 
 	<!-- CSIDE Code -->
+  <script type="text/javascript">
+      (function(window){
+        window.utils = {
+          parseQueryString: function(str) {
+            var ret = Object.create(null);
+
+            if (typeof str !== 'string') {
+              return ret;
+            }
+
+            str = str.trim().replace(/^(\?|#|&)/, '');
+
+            if (!str) {
+              return ret;
+            }
+
+            str.split('&').forEach(function (param) {
+              var parts = param.replace(/\+/g, ' ').split('=');
+              // Firefox (pre 40) decodes `%3D` to `=`
+              // https://github.com/sindresorhus/query-string/pull/37
+              var key = parts.shift();
+              var val = parts.length > 0 ? parts.join('=') : undefined;
+
+              key = decodeURIComponent(key);
+
+              // missing `=` should be `null`:
+              // http://w3.org/TR/2012/WD-url-20120524/#collect-url-parameters
+              val = val === undefined ? null : decodeURIComponent(val);
+
+              if (ret[key] === undefined) {
+                ret[key] = val;
+              } else if (Array.isArray(ret[key])) {
+                ret[key].push(val);
+              } else {
+                ret[key] = [ret[key], val];
+              }
+            });
+
+            return ret;
+          }
+        };
+      })(window);
+  </script>
 	<script type="text/javascript" src="js/all.js"></script>
 	<script type="text/javascript">
 		if (usingNode) {
-			var head = document.getElementsByTagName("head")[0];
+      var head = document.getElementsByTagName("head")[0];
+      var script = document.createElement("script");
+      script.type = "text/javascript";
 			if (head) {
-				var script = document.createElement("script");
-				script.type = "text/javascript";
-				script.src = "js/win-state.js"
+				script.src = "js/win-state.js";
 				head.appendChild(script);
-
-				var script = document.createElement("script");
-				script.type = "text/javascript";
-				script.src = "js/nodeCSIDE.js"
-				head.appendChild(script);
+				script.src = "js/nodeCSIDE.js";
+        head.appendChild(script);
 			}
-		}
-		else {
-			var headbar = document.getElementById("headbar");
-			headbar.setAttribute('class', headbar.getAttribute('class') + ' dropboxLogo');
 		}
 	</script>
 </body>

@@ -6,10 +6,10 @@
     "target": ""
 	},
 	"latest": {
-		"CSIDE_version": "0.0.0",
+		"CSIDE_version": "1.0.1",
     "nw_version": "0.18.2",
-    "desc": "",
-		"target": ""
+    "desc": "Fake update",
+		"target": "../../../../ChoicescriptIDE/web/gh-pages/updates/117.zip"
 	},
 	"dev": {
 		"CSIDE_version": "0.0.0",

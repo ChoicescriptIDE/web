@@ -6,10 +6,10 @@
     "target": ""
 	},
 	"latest": {
-		"CSIDE_version": "1.1.7",
+		"CSIDE_version": "0.0.0",
     "nw_version": "0.18.2",
-    "desc": "Fixed scene name comparison to be case agnostic + other misc tweaks",
-		"target": "117.zip"
+    "desc": "",
+		"target": ""
 	},
 	"dev": {
 		"CSIDE_version": "0.0.0",

@@ -10,7 +10,7 @@ body {
     background-color: #f8f6fb;
     height:100%;
     width:100%;
-    font-family: "Avant Garde", "Avantgarde", "Century Gothic", "CenturyGothic", "AppleGothic", "sans-serif";
+    font-family: "Century Gothic", "CenturyGothic", "AppleGothic", "arial";
     color:rgb(105, 105, 105);
     font-size:12px;
 }
@@ -19,7 +19,7 @@ table {
     min-width: 80%;
     text-align: left;
 }
-td:nth-child(1), th:nth-child(1) {  
+td:nth-child(1), th:nth-child(1) {
     text-align: left;
 }
 h1 {
@@ -50,6 +50,13 @@ h1, h2, h3 {
     border: solid lightgrey;
     border-width: 0px 0px 1px 0px;
     color: rgb(73, 73, 73);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    cursor: default;
 }
 p {
     -webkit-margin-before: .5em;
@@ -71,7 +78,7 @@ a.show {
 a.show::after {
     content: "[show]";
 }
-.nav {
+.nav, .feed {
     padding: 0px;
     list-style: none;
     margin: 0px;
@@ -84,6 +91,14 @@ a.show::after {
 }
 .nav li:nth-child(even) > a {
      background-color: rgb(242, 241, 247);
+}
+.feed li {
+  padding: 10px;
+  border-bottom: 1px #d4d4d4 solid;
+}
+.feed h3 {
+  padding: 0px;
+  border-bottom: none;
 }
 #content {
     position: relative;
@@ -222,6 +237,12 @@ pre {
     margin: 2.5px;
     font-size: 12px;
     cursor: pointer;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
 .breadcrumbs > *:not(:first-child):before {
     content: '> '

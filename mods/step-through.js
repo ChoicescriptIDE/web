@@ -123,7 +123,7 @@ Scene.prototype.printLoopBackup2 = function printLoop() {
         }
         if (!trim(line)) {
             this.paragraph();
-			this.lineNum++;
+            this.lineNum++;
             endOfStep();
             return;
         }
@@ -145,7 +145,7 @@ Scene.prototype.printLoopBackup2 = function printLoop() {
           this.rollbackLineCoverage();
           delete this.temps.fakeChoiceEnd;
           delete this.temps.fakeChoiceLines;
-		  this.lineNum++;
+		      this.lineNum++;
           endOfStep();
           return;
         }
@@ -158,7 +158,7 @@ Scene.prototype.printLoopBackup2 = function printLoop() {
                     this.rollbackLineCoverage();
                     delete this.temps.fakeChoiceEnd;
                     delete this.temps.fakeChoiceLines;
-			        this.lineNum++;
+			              this.lineNum++;
                     endOfStep();
                     return;
                 } else {
@@ -175,7 +175,7 @@ Scene.prototype.printLoopBackup2 = function printLoop() {
     }
 
     function endOfStep() {
-        self.save("temp");
+        //self.save("");
         if (self.skipFooter) {
             self.skipFooter = false;
         } else {

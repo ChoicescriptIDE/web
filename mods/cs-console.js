@@ -92,7 +92,7 @@ Scene.prototype.console_help = function (line) {
                       In addition, the console also provides some of its own commands: \
                       'console_log', 'console_clear', 'console_track', 'console_untrack', 'console_track_all', 'console_untrack_all'\
                       and 'console_track_list'. To find out more about each of the console commands, you can type *console_help [command].\
-                      \n\n**Note: the *goto command will cause the current game screen to be cleared the screen when it is used from the console."
+                      \n\n**Note: the *goto command will cause the current screen to be completely cleared when it is used from the console."
             },
             expressions: { title: "commands",
                 text: "",
@@ -313,4 +313,3 @@ Scene.prototype.CSIDEConsole_forceStoreVarUpdate = function(type, variable) {
  Scene.validCommands.console_track_all = 1;
  Scene.validCommands.console_untrack_all = 1;
  Scene.validCommands.console_track_list = 1;
- Scene.validCommands.stat_dump = 1;

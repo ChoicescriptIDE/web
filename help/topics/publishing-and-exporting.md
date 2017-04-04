@@ -25,29 +25,9 @@ For public beta testing purposes, however, this method is probably less than ide
 Note that you can also export individual scene files (e.g. for uploading quick bug fixes - especially if your public beta test uses the Dropbox 'Public' folder facility) simply by right-clicking the actual scene in question and selecting Export: copy file to folder.
 
 
-### Public Beta Testing - Dropbox Hosting / Backups
+### Public Beta Testing - Dashingdon.com
 
-[Dropbox](https://www.dropbox.com "Dropbox") is a free, secure online file hosting service which also provides a handy desktop application for ease of use: any files placed in the Dropbox folder on your own computer (e.g. by using any of the CSIDE Export features described above) will also be automatically uploaded to your Dropbox account online, and you control who has access to them. (If nothing else, Dropbox provides a useful off-site backup service for your most critical files, as insurance against disaster at home.)
-
-Although the Dropbox 'Public' folder facility is now a monthly subscription service, it is still possible to use an ordinary (i.e. free) Dropbox folder to host a Compiled Game (single HTML file) for public beta testing purposes, as follows:
-
-1. Register for a free Dropbox account and download / install the desktop application. This will create a Dropbox folder on your computer.
-
-2. 'Export as Compiled Game' - use this CSIDE facility, as described above, to place the compiled HTML file in the Dropbox folder on your computer. The file will be automatically uploaded to your  Dropbox account online.
-
-3. Right-click the HTML file in your Dropbox folder and select 'Copy Dropbox Link'.
-
-4. Paste the link into a text editor, email or forum post. It will look something like this:
-
-  https://www.dropbox.com/s/z06ut7b2z5fbpt5/mygame_complete.html
-
-5. Edit it to replace "www" with "dl" and "dropbox" with "dropboxusercontent", so it looks like this:
-
-  https://dl.dropboxusercontent.com/s/z06ut7b2z5fbpt5/mygame_complete.html
-
-6. Post or mail the edited link for your play-testers to use to access your Compiled Game online.
-
-7. When you update your game files within CSIDE and wish to publish a new version of your public beta test, simply delete the old HTML file in your Dropbox folder and repeat the steps above to generate a new version of your game online. Remember to update the link itself wherever posted.
+When you're ready to distribute your game, for play-testing purposes (or otherwise), it's worth checking out dashingdon.com. This is a platform for hosting COG games, provided by the namesake member of the COG forum community. Dashingdon.com provides a free, simple and feature rich hosting platform for your works-in-progress. Please see the forum [thread](https://forum.choiceofgames.com/t/dashingdon-free-choicescript-game-hosting-dropbox-alternative/9250) and wiki page on [publishing](http://choicescriptdev.wikia.com/wiki/Publishing_your_game#Newcomer_Recommended_Solution) for more information.
 
 
 **Next Topic**: [Further Reading](topics/further-reading.md "Further reading")

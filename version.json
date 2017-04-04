@@ -1,0 +1,20 @@
+{
+	"stable": {
+		"CSIDE_version": "1.1.7",
+    "nw_version": "0.18.2",
+    "desc": "Quick Patch: Fixes dirty closure & allows mixed/upper-case scene names",
+		"target": "117.zip"
+	},
+	"latest": {
+		"CSIDE_version": "1.1.7",
+    "nw_version": "0.18.2",
+    "desc": "Quick Patch: Fixes dirty closure & allows mixed/upper-case scene names",
+		"target": "117.zip"
+	},
+	"dev": {
+		"CSIDE_version": "0.0.0",
+    "nw_version": "0.18.2",
+    "desc": "",
+		"target": ""
+	}
+}

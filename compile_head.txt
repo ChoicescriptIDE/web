@@ -29,8 +29,8 @@ either express or implied.
 
 
 
-<style id="dynamic"></style>
 
+<style id="dynamic"></style>
 
 
 
@@ -1583,6 +1583,10 @@ _global = this;
   _global.isMobile = _global.isWebOS || /Mobile/.test(userAgent);
   _global.isFile = /^file:/.test(url);
   _global.isXul = /^chrome:/.test(url);
+  try {
+    _global.greenworks = require('greenworks');
+    _global.isGreenworks = true;
+  } catch (ignored) {}
   _global.isWinOldApp = false;
   try {
     isWinOldApp = window.external.IsWinOldApp();
@@ -2618,6 +2622,8 @@ function showMenu() {
       {name:"Email us at " + getSupportEmail() + ".", group:"choice", contactUs:true},
       {name:"Share this game with friends.", group:"choice", share:true},
       {name:"Email me when new games are available.", group:"choice", subscribe:true},
+      {name:"Make the text bigger or smaller.", group:"choice", fontSizeMenu:true},
+      {name:"Change the background color.", group:"choice", background:true},
     ];
     printOptions([""], options, function(option) {
       if (option.resume) {
@@ -2639,6 +2645,10 @@ function showMenu() {
         subscribeLink();
       } else if (option.contactUs) {
         window.location.href="mailto:"+getSupportEmail();
+      } else if (option.fontSizeMenu) {
+        fontSizeMenu();
+      } else if (option.background) {
+        backgroundColorMenu();
       }
     });
   }
@@ -2649,7 +2659,11 @@ function setButtonTitles() {
   var button;
   button = document.getElementById("menuButton");
   if (button) {
-    button.innerHTML = "Menu";
+    if (window.isWeb) {
+      menuButton.innerHTML = "Settings";
+    } else {
+      button.innerHTML = "Menu";
+    }
   }
   button = document.getElementById("statsButton");
   if (button) {
@@ -2664,8 +2678,145 @@ function setButtonTitles() {
       button.style.display = "none";
     }
   }
-
 }
+
+function fontSizeMenu() {
+  clearScreen(function() {
+    var text = document.getElementById("text");
+    var oldZoom = getZoomFactor();
+    text.innerHTML = "<p>Make the text bigger or smaller.</p>";
+    options = [
+      {name:"Return to the game.", group:"choice", resume:true},
+      {name:"Make the text bigger.", group:"choice", bigger:true},
+      {name:"Make the text smaller.", group:"choice", smaller:true},
+    ];
+    if (oldZoom <= 0.5) {
+      options[options.length-1].unselectable = true;
+    }
+    if (oldZoom !== 1) {
+      options.push({name:"Reset the text to its original size.", group:"choice", reset:true});
+    }
+    printOptions([""], options, function(option) {
+      if (option.resume) {
+        setButtonTitles();
+        return clearScreen(loadAndRestoreGame);
+      } else if (option.reset) {
+        setZoomFactor(1);
+        fontSizeMenu();
+      } else {
+        changeFontSize(option.bigger);
+        fontSizeMenu();
+      }
+    })
+  });
+}
+
+function textOptionsMenu() {
+  clearScreen(function() {
+    var text = document.getElementById("text");
+    var oldZoom = getZoomFactor();
+    text.innerHTML = "<p>Change the size and color of the text.</p>";
+    options = [
+      {name:"Return to the game.", group:"choice", resume:true},
+      {name:"Make the text bigger.", group:"choice", bigger:true},
+      {name:"Make the text smaller.", group:"choice", smaller:true},
+    ];
+    if (oldZoom <= 0.5) {
+      options[options.length-1].unselectable = true;
+    }
+    if (oldZoom !== 1) {
+      options.push({name:"Reset the text to its original size.", group:"choice", reset:true});
+    }
+    options.push(
+      {name:"Use a black background.", group:"choice", color:"black"},
+      {name:"Use a sepia background.", group:"choice", color:"sepia"},
+      {name:"Use a white background.", group:"choice", color:"white"}
+    );
+    printOptions([""], options, function(option) {
+      if (option.resume) {
+        setButtonTitles();
+        return clearScreen(loadAndRestoreGame);
+      } else if (option.color) {
+        changeBackgroundColor(option.color);
+      } else if (option.reset) {
+        setZoomFactor(1);
+        textOptionsMenu();
+      } else {
+        changeFontSize(option.bigger);
+        textOptionsMenu();
+      }
+      curl();
+    })
+    curl();
+  });
+}
+
+function getZoomFactor() {
+  if (document.body.style.zoom === undefined) {
+    return window.zoomFactor || 1;
+  } else {
+    var zoomFactor = parseFloat(document.body.style.zoom);
+    if (isNaN(zoomFactor)) zoomFactor = 1;
+    return zoomFactor;
+  }
+}
+
+function setZoomFactor(zoomFactor) {
+  if (document.body.style.zoom === undefined) {
+    var initialMaxWidth = 680;
+    document.body.style.maxWidth = (initialMaxWidth / zoomFactor) + "px";
+    document.body.style.transformOrigin = "center top";
+    document.body.style.transform = "scale("+zoomFactor+")";
+    window.zoomFactor = zoomFactor;
+  } else {
+    document.body.style.zoom = zoomFactor;
+  }
+  if (initStore()) store.set("preferredZoom", String(zoomFactor));
+}
+
+function changeFontSize(bigger) {
+  var oldZoom = getZoomFactor();
+  if (bigger) {
+    setZoomFactor(oldZoom + 0.1);
+  } else {
+    setZoomFactor(oldZoom - 0.1);
+  }
+}
+
+function changeBackgroundColor(color) {
+  if (color === "sepia") {
+    document.body.classList.remove("nightmode", "whitemode");
+  } else if (color === "black") {
+    document.body.classList.remove("whitemode");
+    document.body.classList.add("nightmode");
+  } else if (color === "white") {
+    document.body.classList.remove("nightmode");
+    document.body.classList.add("whitemode");
+  }
+  if (initStore()) store.set("preferredBackground", color);
+}
+
+function backgroundColorMenu() {
+  clearScreen(function() {
+    var text = document.getElementById("text");
+    text.innerHTML = "<p>Change the background color.</p>";
+    options = [
+      {name:"Return to the game.", group:"choice", resume:true},
+      {name:"Use a black background.", group:"choice", color:"black"},
+      {name:"Use a sepia background.", group:"choice", color:"sepia"},
+      {name:"Use a white background.", group:"choice", color:"white"},
+    ];
+    printOptions([""], options, function(option) {
+      if (option.resume) {
+        setButtonTitles();
+        return clearScreen(loadAndRestoreGame);
+      } else {
+        changeBackgroundColor(option.color);
+      }
+    })
+  });
+}
+
 
 
 function spell(num) {
@@ -3066,11 +3217,15 @@ function printOptionRadioButton(div, name, option, localChoiceNumber, globalChoi
     div.appendChild(div2);
 }
 
-function printImage(source, alignment, alt) {
+function printImage(source, alignment, alt, invert) {
   var img = document.createElement("img");
   img.src = source;
   if (alt !== null && String(alt).length > 0) img.setAttribute("alt", alt);
-  setClass(img, "align"+alignment);
+  if (invert) {
+    setClass(img, "invert align"+alignment);
+  } else {
+    setClass(img, "align"+alignment);
+  }
   document.getElementById("text").appendChild(img);
 }
 
@@ -3588,6 +3743,24 @@ function checkPurchase(products, callback) {
         callback(!"ok");
       }
     });
+  } else if (window.isGreenworks) {
+    var greenworks = require('greenworks');
+    var greenworksApps = require('../package.json').products;
+    var purchases = {};
+    var productList = products.split(/ /);
+    for (i = 0; i < productList.length; i++) {
+      var appId = greenworksApps[productList[i]];
+      var purchased = false;
+      try {
+        purchased = greenworks.isSubscribedApp(appId);
+      } catch (e) {
+        return safeTimeout(function() {callback(!"ok");}, 0);
+      }
+      purchases[productList[i]] = purchased;
+    }
+    purchases.billingSupported = true;
+    publishPurchaseEvents(purchases);
+    safeTimeout(function() {callback("ok", purchases);}, 0);
   } else if (isWebPurchaseSupported()) {
     checkWebPurchases(function(ok, knownPurchases) {
       callback(ok, knownPurchases);
@@ -3614,26 +3787,37 @@ function isRestorePurchasesSupported() {
 }
 
 function restorePurchases(product, callback) {
+  function webRestoreCallback() {
+    var purchased = window.knownPurchases && window.knownPurchases[product];
+    if (!purchased) {
+      if (window.isAndroidApp) {
+        asyncAlert("Restore completed. This product is not yet purchased. Sometimes purchases can fail to restore for reasons outside our control. If you have already purchased this product, try uninstalling and reinstalling the app. If that doesn't work, please email a copy of your receipt to " + getSupportEmail() + " and we'll find a way to help you.");
+      } else {
+        asyncAlert("Restore completed. This product is not yet purchased.");
+      }
+    }
+    callback(purchased);
+  }
   function secondaryRestore(error) {
     window.restoreCallback = null;
     if (product) {
       checkPurchase(product, function(ok, purchases) {
         if (purchases[product]) {
-          callback();
+          callback("purchased");
         } else {
           clearScreen(function() {
             var target = document.getElementById('text');
             if (error) {
-              target.innerHTML="<p>Restore completed. Please try again later, or sign in to Choiceofgames.com to restore purchases.</p>";
+              target.innerHTML="<p>Restore failed. Please try again later, or sign in to Choiceofgames.com to restore purchases.</p>";
             } else {
               target.innerHTML="<p>Restore completed. This product is not yet purchased. You may also sign in to Choiceofgames.com to restore purchases.</p>";
             }
-            loginForm(document.getElementById('text'), /*optionality*/1, /*err*/null, function() {callback(); });
+            loginForm(document.getElementById('text'), /*optionality*/1, /*err*/null, webRestoreCallback);
           });
         }
       });
     } else {
-      callback(error);
+      callback();
     }
   }
   if (window.isIosApp) {
@@ -3653,16 +3837,16 @@ function restorePurchases(product, callback) {
           } else {
             if (response.error != "not registered") {
               alertify.error("There was an error downloading your purchases from Choiceofgames.com. "+
-                "Please refresh this page to try again, or contact support@choiceofgames.com for assistance.", 15000);
+                "Please refresh this page to try again, or contact " + getSupportEmail() + " for assistance.", 15000);
             }
           }
-          callback(!ok);
+          webRestoreCallback();
         });
       } else {
         clearScreen(function() {
           var target = document.getElementById('text');
           target.innerHTML="<p>Please sign in to Choiceofgames.com to restore purchases.</p>";
-          loginForm(document.getElementById('text'), /*optional*/1, /*err*/null, function() {callback();});
+          loginForm(document.getElementById('text'), /*optional*/1, /*err*/null, webRestoreCallback);
         });
       }
     });
@@ -3678,9 +3862,41 @@ function getPrice(product, callback) {
   } else if (window.isAndroidApp) {
     window.priceCallback = callback;
     androidBilling.getPrice(product);
+  } else if (window.isWeb) {
+    if (window.productData && window.productData[product] && window.productData[product].amount) {
+      safeTimeout(function () {
+        callback.call(this, "$"+(productData[product].amount/100));
+      }, 0);
+    } else {
+      safeTimeout(function() {
+        if (window.productData && window.productData[product] && window.productData[product].amount) {
+          callback.call(this, "$"+(productData[product].amount/100));
+        } else {
+          callback.call(this, "guess");
+        }
+      }, 500);
+    }
+  } else if (window.isGreenworks) {
+    if (window.productData && window.productData[product]) {
+      safeTimeout(function () {
+        callback.call(this, productData[product]);
+      }, 0);
+    } else {
+      window.awaitSteamProductData = function() {
+        doneLoading();
+        window.awaitSteamProductData = null;
+        if (window.productData && window.productData[product]) {
+          callback.call(this, productData[product]);
+        } else {
+          callback.call(this, "hide");
+        }
+      };
+      startLoading();
+      safeTimeout(function() {if (window.awaitSteamProductData) awaitSteamProductData();}, 5000);
+    }
   } else {
     safeTimeout(function () {
-      callback.call(this, "guess");
+      callback.call(this, "hide");
     }, 0);
   }
 }
@@ -3704,6 +3920,9 @@ function purchase(product, callback) {
     window.external.Purchase(product);
   } else if (window.isMacApp && window.macPurchase) {
     macPurchase.purchase_(product);
+  } else if (window.isGreenworks) {
+    var greenworksApps = require('../package.json').products;
+    if (greenworksApps[product]) require("electron").shell.openExternal("steam://advertise/"+greenworksApps[product]);
   } else if (window.isCef) {
     cefQuerySimple("Purchase " + product);
     // no callback; we'll refresh on purchase
@@ -3870,6 +4089,10 @@ function registerNativeAchievement(name) {
     window.external.Achieve(name);
   } else if (window.isCef) {
     cefQuerySimple("Achieve " + name);
+  } else if (window.isGreenworks) {
+    require('greenworks').activateAchievement(name, function() {
+      console.log("registered achievement " + name);
+    })
   }
 }
 
@@ -3923,6 +4146,31 @@ function checkAchievements(callback) {
         alreadyLoadingAchievements = !!window.checkAchievementCallback;
         window.checkAchievementCallback = mergeNativeAchievements;
         if (!alreadyLoadingAchievements) callIos("checkachievements");
+      } else if (window.isGreenworks) {
+        if (!window.greenworksAchivementCallbackCount) {
+          var greenworks = require('greenworks');
+          var nativeAchievementNames = greenworks.getAchievementNames();
+          window.greenworksAchivementCallbackCount = nativeAchievementNames.length;
+          if (!window.greenworksAchivementCallbackCount) {
+            return callback();
+          }
+          var nativeAchievements = [];
+          for (var i = 0; i < nativeAchievementNames.length; i++) {
+            (function(i) {
+              greenworks.getAchievement(nativeAchievementNames[i], function(bAchieved) {
+                greenworksAchivementCallbackCount--;
+                if (bAchieved) {
+                  nativeAchievements.push(nativeAchievementNames[i]);
+                }
+                if (!greenworksAchivementCallbackCount) {
+                  mergeNativeAchievements(nativeAchievements);
+                }
+              }, function(err) {
+                greenworksAchivementCallbackCount--;
+              });
+            })(i);
+          }
+        }
       } else if (window.isMacApp && window.macAchievements) {
         alreadyLoadingAchievements = !!window.checkAchievementCallback;
         window.checkAchievementCallback = mergeNativeAchievements;
@@ -4776,6 +5024,23 @@ window.onload=function() {
     window.main = document.getElementById("main");
     var head = document.getElementsByTagName("head")[0];
     window.nav.setStartingStatsClone(window.stats);
+    if (initStore()) {
+      store.get("preferredZoom", function(ok, preferredZoom) {
+        if (ok && !isNaN(parseFloat(preferredZoom))) {
+          setZoomFactor(parseFloat(preferredZoom));
+        }
+      });
+      store.get("preferredBackground", function(ok, preferredBackground) {
+        if (!/^(sepia|black|white)$/.test(preferredBackground)) {
+          preferredBackground = "sepia";
+        }
+        if (preferredBackground === "black") {
+          document.body.classList.add("nightmode");
+        } else if (preferredBackground === "white") {
+          document.body.classList.add("whitemode");
+        }
+      });
+    }
     if (window.achievements && window.achievements.length) {
       nav.loadAchievements(window.achievements);
       checkAchievements(function() {});
@@ -4816,6 +5081,8 @@ window.onload=function() {
           safeCall(null, loadAndRestoreGame);
         }
         startupScene.execute();
+      } else if (map.textOptionsMenu) {
+        textOptionsMenu();
       } else {
         safeCall(null, loadAndRestoreGame);
       }
@@ -4843,7 +5110,7 @@ window.onload=function() {
             };
         }
     }
-    if (window.isCef || window.isNode) {
+    if (window.isCef || window.isNode || window.isMacApp) {
       var buttons = document.getElementById("buttons");
       buttons.appendChild(document.createTextNode(" "));
       var menuButton = document.createElement("button");
@@ -4851,6 +5118,15 @@ window.onload=function() {
       setClass(menuButton, "spacedLink");
       menuButton.onclick = showMenu;
       menuButton.innerHTML = "Menu";
+      buttons.appendChild(menuButton);
+    } else if (window.isWeb) {
+      var buttons = document.getElementById("buttons");
+      buttons.appendChild(document.createTextNode(" "));
+      var menuButton = document.createElement("button");
+      menuButton.id = "menuButton";
+      setClass(menuButton, "spacedLink");
+      menuButton.onclick = textOptionsMenu;
+      menuButton.innerHTML = "Settings";
       buttons.appendChild(menuButton);
     }
     if (window.isWinOldApp) {
@@ -4881,8 +5157,12 @@ window.onload=function() {
       }
       if (productList) checkPurchase(productList, function() {});
     }
-    if (window.isWeb && window.appPurchase) {
+    if (window.isWeb) {
       (function() {
+        if (window.releaseDate && new Date() < window.releaseDate) {
+          var appLinks = document.getElementById('mobileLinks');
+          if (appLinks) appLinks.style.display = 'none';
+        }
         var productMap = {};
         if (typeof purchases === "object") {
           for (var scene in purchases) {
@@ -4921,7 +5201,7 @@ try {
 } catch (e) {}
 
 if (window.isWeb) {
-  document.getElementById("dynamic").innerHTML = ".webOnly { display: block !important; }";
+  document.getElementById("dynamic").innerHTML = ".webOnly { display: block; }";
   var checkoutScript = document.createElement("script");
   checkoutScript.async = 1;
   checkoutScript.src="https://checkout.stripe.com/v2/checkout.js";
@@ -4969,6 +5249,8 @@ if (window.isWeb) {
   document.getElementById("dynamic").innerHTML =
   "#header { display: none; }"+
   ""+
+  "body { transition-duration: 0; }"+
+  ""+
   "#emailUs { display: none; }"+
   ""+
   "#main { padding-top: 1em; }";
@@ -5009,7 +5291,9 @@ if (window.isWeb) {
 }
 // on touch devices, this hover state never goes away
 if (!('ontouchstart' in window)) {
-  document.getElementById("dynamic").innerHTML += ".choice label:hover {background-color: #E4DED8;}";
+  document.getElementById("dynamic").innerHTML += ".choice label:hover {background-color: #E4DED8;}\n" +
+    "body.nightmode .choice label:hover {background-color: #555;}\n"+
+    "body.whitemode .choice label:hover {background-color: #ddd;}\n";
 }
 if (window.isChromeApp) {
   var base = document.createElement('base');
@@ -5090,6 +5374,52 @@ if (window.isCef) {
     });
   };
   pollPurchases();
+} else if (window.isGreenworks) {
+	(function() {
+		var greenworksApps = require('../package.json').products;
+		if (typeof greenworksApps === "undefined") throw new Error("package.json missing products");
+		var greenworksAppId = window.isTrial ? greenworksApps.steam_demo : greenworksApps.adfree;
+		if (greenworks.restartAppIfNecessary(greenworksAppId)) return require('electron').remote.app.quit();
+		if (!greenworks.initAPI()) {
+			var errorCode = greenworks.isSteamRunning() ? 77778 : 77777;
+			alert("There was an error connecting to Steam. Steam must be running" +
+				" to play this game. If you launched this game using Steam, try restarting Steam" +
+				" or rebooting your computer. If that doesn't work, try completely uninstalling" +
+				" Steam and downloading a fresh copy from steampowered.com.\n\nIf none of that works, please contact" +
+				" support@choiceofgames.com and we'll try to help. (Mention error code "+errorCode+".)")
+			require('electron').remote.app.quit();
+    }
+		if (window.isTrial && greenworks.isSubscribedApp(greenworksApps.adfree)) {
+			alert("This is the demo version of the game, " +
+				"but you now own the full version. The demo will now exit. Your progress has been saved." +
+				" Please launch the full version of the game using Steam.");
+			require('electron').remote.app.quit();
+		}
+		var pollPurchases = function(oldCount) {
+			var count = 0;
+			for (var product in greenworksApps) {
+				if (greenworks.isSubscribedApp(greenworksApps[product])) {
+					count++;
+				}
+			}
+			if (count != oldCount && typeof oldCount !== "undefined") clearScreen(loadAndRestoreGame);
+			safeTimeout(function() {pollPurchases(count)}, 100);
+		};
+		pollPurchases();
+
+    var appIds = [];
+    for (var product in greenworksApps) {
+      appIds.push(greenworksApps[product]);
+    }
+
+    xhrAuthRequest("GET", "steam-price", function(ok, data) {
+      if (!window.productData) window.productData = {};
+      for (var product in greenworksApps) {
+        window.productData[product] = data[greenworksApps[product]];
+      }
+      if (window.awaitSteamProductData) window.awaitSteamProductData();
+    }, "user_id", greenworks.getSteamId().steamId, "app_ids", appIds.join(","));
+	})();
 }
 
 function winStoreShareLinkHandler(e) {
@@ -5283,8 +5613,7 @@ Scene.prototype.printLoop = function printLoop() {
             }
             this.prevLine = "text";
             this.screenEmpty = false;
-            this.printLine(trim(line));
-            printx(' ', this.target);
+            this.printLine(line);
         }
     }
     this.rollbackLineCoverage();
@@ -5303,14 +5632,16 @@ Scene.prototype.dedent = function dedent(newDent) {};
 
 Scene.prototype.printLine = function printLine(line, parent) {
     if (!line) return null;
-    line = this.replaceVariables(line);
+    line = this.replaceVariables(line.replace(/^ */, ""));
     if (!parent) parent = this.target;
-    return printx(line, parent);
+    printx(line, parent);
+    // insert extra space unless the line ends with hyphen or dash
+    if (!/[-\u2011-\u2014]$/.test(line)) printx(' ', parent);
 };
 
 Scene.prototype.replaceVariables = function (line) {
   line = String(line);
-  var replacer = /(\$(\!?\!?)\{)/;
+  var replacer = /([$@](\!?\!?)\{)/;
   var index = 0;
   var output = [];
   for (var result = replacer.exec(line); result; result = replacer.exec(line.substring(index))) {
@@ -5332,11 +5663,67 @@ Scene.prototype.replaceVariables = function (line) {
       }
     }
     if (closingCurly == -1) {
-      throw new Error(this.lineMsg() + "invalid ${} variable substitution at letter " + (index + result.index + 1));
+      throw new Error(this.lineMsg() + "invalid "+result[0]+"} variable substitution at letter " + (index + result.index + 1));
     }
-    var expr = line.substring(exprStart, closingCurly);
-    var stack = this.tokenizeExpr(expr);
-    var value = this.evaluateExpr(stack);
+    var body = line.substring(exprStart, closingCurly);
+    var stack, value;
+    if (result[0].charAt(0) === "$") {
+      stack = this.tokenizeExpr(body);
+      value = this.evaluateExpr(stack);
+    } else {
+      var expr;
+      var options;
+      if (/^\s*\(/.test(body)) {
+        var parens = 0;
+        var closingParen = -1;
+        for (var i = 1; i < body.length; i++) {
+          var c = body.charAt(i);
+          if (c === "(") {
+            parens++;
+          } else if (c === ")") {
+            if (parens) {
+              parens--;
+            } else {
+              closingParen = i;
+              break;
+            }
+          }
+        }
+        if (closingParen == -1) {
+          throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; missing closing parenthesis )");
+        }
+        if (body.charAt(closingParen+1) != " ") {
+          throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; there should be a space after the closing parenthesis )");
+        }
+        expr = body.substring(1, closingParen);
+        options = body.substring(closingParen+2).split("|");
+      } else {
+        if (!/^\S+ /.test(body)) {
+          throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; there should be a space after the first word");
+        }
+        var spaceIndex = body.indexOf(' ');
+        expr = body.substring(0, spaceIndex);
+        options = body.substring(spaceIndex+1).split("|");
+      }
+      if (options.length < 2) {
+        throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; there should be at least one pipe | to separate options");
+      }
+      stack = this.tokenizeExpr(expr);
+      value = this.evaluateExpr(stack);
+      if (typeof value === "boolean" || /^(true|false)$/i.test(value)) {
+        value = bool(value) ? 1 : 2;
+      }
+      value = num(value, this.lineNum+1);
+      if ((value | 0) !== value) {
+        throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; '"+expr+"' is equal to " + value + " which is not a whole integer number");
+      } else if (value < 1) {
+        throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; '"+expr+"' is equal to " + value + " which is not a positive number");
+      } else if (value > options.length) {
+        throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; '"+expr+"' is equal to " + value + " but there are only " + options.length + " options");
+      }
+      value = options[value-1];
+      value = this.replaceVariables(value);
+    }
     var capitalize = result[2];
     if (capitalize) value = String(value);
     if (capitalize == "!") {
@@ -6146,16 +6533,19 @@ Scene.prototype.purchase = function purchase_button(data) {
       self.resetPage();
     } else {
       if (price == "guess") price = priceGuess;
-      var target = self.target;
-      if (!target) target = document.getElementById('text');
-      self.paragraph();
       var prerelease = (typeof window !== "undefined" && window.releaseDate && window.isWeb && window.releaseDate > new Date());
       var buttonText;
       if (prerelease) {
-        buttonText = "Pre-Order It for " + price;
+        buttonText = "Pre-Order It";
       } else {
-        buttonText = "Buy It Now for " + price;
+        buttonText = "Buy It Now";
       }
+      if (price != "hide") {
+        buttonText += " for " + price;
+      }
+      var target = self.target;
+      if (!target) target = document.getElementById('text');
+      self.paragraph();
       var button = printButton(buttonText, target, false,
         function() {
           safeCall(self, function() {
@@ -6176,24 +6566,15 @@ Scene.prototype.purchase = function purchase_button(data) {
         printLink(target, "#", "restore purchases",
           function() {
             safeCall(self, function() {
-                restorePurchases(product, function(error) {
-                  checkPurchase(product, function(ok, purchases) {
-                    if (ok && purchases[product]) {
-                      self["goto"](label);
-                      self.finished = false;
-                      self.resetPage();
-                    } else {
-                      if (error || !ok) {
-                        asyncAlert("Restore failed. Please try again.");
-                      } else {
-                        asyncAlert("Restore completed. This product is not yet purchased.");
-                      }
-                      if (ok) { // don't refresh if not OK, but should we refresh on error? assuming yes?
-                        // refresh, in case we're on web showing a full-screen login. Not necessary on mobile? But, meh.
-                        if (!self.secondaryMode) clearScreen(loadAndRestoreGame);
-                      }
-                    }
-                  });
+                restorePurchases(product, function(purchased) {
+                  if (purchased) {
+                    self["goto"](label);
+                    self.finished = false;
+                    self.resetPage();
+                  } else {
+                    // refresh, in case we're on web showing a full-screen login. Not necessary on mobile? But, meh.
+                    if (!self.secondaryMode) clearScreen(loadAndRestoreGame);
+                  }
                 });
             });
           }
@@ -6335,6 +6716,7 @@ Scene.prototype.getVar = function getVar(variable) {
     }
     if (variable == "choice_kindle") return false;
     if (variable == "choice_randomtest") return !!this.randomtest;
+    if (variable == "choice_quicktest") return false; // quicktest will explore "false" paths
     if (variable == "choice_restore_purchases_allowed") return isRestorePurchasesSupported();
     if (variable == "choice_save_allowed") return areSaveSlotsSupported();
     if (variable == "choice_time_stamp") return Math.floor(new Date()/1000);
@@ -6702,7 +7084,7 @@ Scene.prototype.line_break = function line_break() {
 
 // *image
 // display named image //CJW edited to compensate for data uri images
-Scene.prototype.image = function image(data) {
+Scene.prototype.image = function image(data, invert) {
     data = data || "";
     data = this.replaceVariables(data);
     var args = data.split(" ");
@@ -6722,11 +7104,15 @@ Scene.prototype.image = function image(data) {
     }
     alignment = alignment || "center";
     if (!/(right|left|center|none)/.test(alignment)) throw new Error(this.lineMsg()+"Invalid alignment, expected right, left, center, or none: " + data);
-    printImage(source, alignment, alt);
+    printImage(source, alignment, alt, invert);
     if (this.verifyImage) this.verifyImage(source);
     if (alignment == "none") this.prevLine = "text";
     this.screenEmpty = false;
 };
+
+Scene.prototype.text_image = function textImage(data) {
+  this.image(data, "invert");
+}
 
 // *sound
 // play named sound file
@@ -6847,7 +7233,6 @@ Scene.prototype.print = function scene_print(expr) {
     this.prevLine = "text";
     this.screenEmpty = false;
     this.printLine(value);
-    printx(' ', this.target);
 };
 
 // *input_text var
@@ -6892,6 +7277,13 @@ Scene.prototype.input_number = function input_number(data) {
       throw new Error(this.lineMsg() + "Non-existent variable '"+variable+"'");
     }
 
+    var simpleConstants;
+    if (stack.length == 2 && stack[0].name == "NUMBER" && stack[1].name == "NUMBER") {
+      simpleConstants = true;
+    } else {
+      simpleConstants = false;
+    }
+
     if (!stack.length) throw new Error(this.lineMsg() + "Invalid input_number statement, expected three args: varname min max");
     var minimum = this.evaluateValueToken(stack.shift(), stack);
     if (isNaN(minimum*1)) throw new Error(this.lineMsg() + "Invalid minimum, not numeric: " + minimum);
@@ -6901,7 +7293,12 @@ Scene.prototype.input_number = function input_number(data) {
     if (stack.length) throw new Error(this.lineMsg() + "Invalid input_number statement, expected three args: varname min max");
     if (isNaN(maximum*1)) throw new Error(this.lineMsg() + "Invalid maximum, not numeric: " + maximum);
 
-    if (parseFloat(minimum) > parseFloat(maximum)) throw new Error(this.lineMsg() + "Minimum " + minimum+ " should not be greater than maximum " + maximum);
+    // in quicktest, min and max can get mixed up as the interpreter "cheats" on if statements
+    // so quicktest will ignore min/max errors unless they're simple constants e.g. *input_number x 6 4
+    var checkMinMax = !this.quicktest || simpleConstants;
+    if (checkMinMax && parseFloat(minimum) > parseFloat(maximum)) {
+      throw new Error(this.lineMsg() + "Minimum " + minimum+ " should not be greater than maximum " + maximum);
+    }
 
     function isInt(x) {
        var y=parseInt(x,10);
@@ -6930,7 +7327,7 @@ Scene.prototype.input_number = function input_number(data) {
           asyncAlert("Please use a number greater than or equal to " + minimum);
           return;
         }
-        if (numValue > maximum * 1) {
+        if (numValue > maximum * 1 && !this.quicktest) {
           asyncAlert("Please use a number less than or equal to " + maximum);
           return;
         }
@@ -9129,7 +9526,7 @@ Scene.validCommands = {"comment":1, "goto":1, "gotoref":1, "label":1, "looplimit
     "restart":1,"more_games":1,"delay_ending":1,"end_trial":1,"login":1,"achieve":1,"scene_list":1,"title":1,
     "bug":1,"link_button":1,"check_registration":1,"sound":1,"author":1,"gosub_scene":1,"achievement":1,
     "check_achievements":1,"redirect_scene":1,"print_discount":1,"purchase_discount":1,"track_event":1,
-    "timer":1,"youtube":1,"product":1
+    "timer":1,"youtube":1,"product":1,"text_image":1
     };
 /*
  * Copyright 2010 by Dan Fabulich.
@@ -9244,7 +9641,350 @@ SceneNavigator.prototype.loadProducts = function(productArray, purchaseMap) {
 nav = new SceneNavigator(["startup"]);
 stats = {};
 
-</script><style>.alertify-show,
+</script><style>body {
+  max-width: 680px;
+  _width:expression(this.scrollWidth > 680 ? "680px" : "auto");
+  font-size: 100%;  /* reset for CWS */
+  font: -apple-system-body; /* we'll override the font, but keep the size from iOS dynamic text sizing */
+  font-family: Georgia,"Times New Roman",serif;
+  background-color: #F7F4F1;
+  color: rgba(0, 0, 0, 0.85);
+  margin: 8px auto; 
+  padding: 0 8px;
+  -webkit-user-select: text; /* selectable text for Chrome app support */
+  transition-property: background-color, color;
+  transition-duration: 2s;
+}
+
+a {
+  /* colored underlined links for XULRunner support */
+  color: blue;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#main {
+	line-height: 1.5;
+}
+
+#text img {
+  max-width: 100%;
+}
+
+.statBar {
+  background-color: #949291;
+  height: 2em;
+  line-height: 2em;
+  margin: 4px 0;
+  width: 300px;
+  max-width: 100%;
+  color: #f7f4f1;
+  position: relative; /* to allow absolute positioned value */
+  z-index: 0;
+}
+.opposed {
+  background-color: #6D6DFC;
+}
+
+table {
+  margin-bottom: 1.5em;
+}
+
+.statText {
+  margin-left: 2ex;
+  text-indent: -1ex;
+}
+
+.statBar > span, .statLine > span {
+  position: relative;
+  z-index: 1; /* visible over stat value */
+  white-space: nowrap; /* remain on single line so we can resize font based on width */
+}
+.statValue {
+  background-color: #ff5955;
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  z-index: -1;
+  /* width will be determined at runtime, 0-100% */
+}
+
+.choice label{
+    padding: 11px 8px 12px;
+    display:block;
+    border-color:#a9acaf;
+    border-style:solid;
+    border-width: 1px 1px 0px 1px
+}
+
+.choice .firstChild{
+    border-top-width:1px;
+    -webkit-border-top-right-radius:8px;
+    -webkit-border-top-left-radius:8px;
+    border-top-right-radius:8px;
+    border-top-left-radius:8px;
+}
+/* IE doesn't support label:last-child */
+.choice .lastChild{
+    border-bottom-width:1px;
+    -webkit-border-bottom-right-radius:8px;
+    -webkit-border-bottom-left-radius:8px;
+    -moz-border-radius:0px 0px 8px 8px;
+    border-bottom-right-radius:8px;
+    border-bottom-left-radius:8px;
+}
+.choice .onlyChild{
+    border-width:1px;
+    -webkit-border-radius:8px;
+    -moz-border-radius:8px;
+    border-radius:8px;
+}
+
+.choice .noBorder {
+  border-width: 0;
+}
+
+input[type="radio"], input[type="checkbox"] {
+  margin-right: 8px;
+}
+
+.saveGame>label {
+  display:block;
+}
+
+.choice .disabled {
+  color: gray;
+}
+
+input[type=password]:disabled {
+  background-color: lightgray;
+}
+
+/* Reset for Firefox vs. Chrome */
+input[type=email],input[type=password] {
+  padding: 1px;
+  margin: 2px 0;
+}
+
+.next {
+    clear: both;
+    display:block;
+    width:100%;
+    font-size:1.5em;
+    font-weight:bolder;
+    font-family: -apple-system, sans-serif; /* reset, for Android */
+    margin-bottom: 1em; /* reset button margin */
+    -webkit-appearance: none; /* Safari, don't override my CSS styles */
+    color: #f7f4f1; /* Match background color */ 
+    background-color: #626160;
+    border: none;
+    -webkit-border-radius: 0.5em;
+    -moz-border-radius: 0.5em;
+    border-radius: 0.5em;
+    padding: 6px;
+}
+
+.linkButton {
+  text-align: center;
+  text-decoration: none;
+}
+
+.next:hover {
+  color: #E4DED8;
+}
+
+h1 {
+  font-size: 1.5em;
+  font-weight: normal;
+}
+
+h2 {
+  font-size: 1.125em;
+  font-weight: normal;
+}
+
+#identity {
+  float: right;
+  display: none;
+}
+
+#identity > a {
+  display: block;
+  text-align: end;
+}
+
+#footer {
+  margin:10px 0px 75px 0px;
+}
+
+#mobileLinks a img {
+  border: 0;
+}
+
+.mobileBadges {
+  margin: 0;
+}
+
+.spacedLink {
+  margin-right:0.5em;
+}
+
+.spacedLink:last-child {
+  margin-right:0;
+}
+
+#sharelist {
+  margin: 0; /* Eliminate leading space before share links */
+}
+
+#sharelist li {
+  line-height: 1cm; /* Don't let the links bunch up */
+}
+
+.alertify-cover {
+  background-color: black;
+  filter:alpha(opacity=50);
+  opacity: 0.5;
+}
+
+#greybackground {
+    position: fixed;
+    width:100%;
+    height:100%;
+    background-color: black;
+    filter:alpha(opacity=50);
+    opacity: 0.5;
+    top:0;
+    left:0;
+}
+
+.savePassword {
+  font-family: monospace;
+  display: block;
+}
+
+.webOnly { /* We'll override this in JavaScript */
+  display: none;
+}
+
+.alignleft {
+  display: inline;
+  float: left;
+  margin-right: 1.625em;
+  margin-bottom: 1.5em;
+}
+.alignright {
+  display: inline;
+  float: right;
+  margin-left: 1.625em;
+  margin-bottom: 1.5em;
+}
+.aligncenter {
+  clear: both;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 1.5em;
+}
+
+#main form {
+  clear: both;
+}
+
+.paidOnly {
+  display: none;
+}
+
+.videoWrapper {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 */
+  height: 0;
+}
+
+.videoWrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body.nightmode {
+  background-color: #242424;
+  color: rgba(255,255,255,0.85);
+}
+
+body.nightmode a {
+  color: #7bc8fa;
+}
+
+body.nightmode .next {
+  color: #242424; /* Match background color */
+  background-color: #D9D9D9;
+}
+
+body.nightmode .next:hover {
+  color: #555;
+}
+
+body.nightmode .alertify {
+  color: black;
+}
+
+body.nightmode a.alertify-button {
+  color: white;
+}
+
+body.nightmode img.invert {
+  -webkit-filter: invert(100%);
+  filter: invert(100%);
+}
+
+body.whitemode {
+  background-color: white;
+}
+
+body.whitemode .next {
+  color: white; /* Match background color */
+}
+
+body.whitemode .next:hover {
+  color: #ddd;
+}
+
+@media only screen and (max-width: 480px) {
+  .definition{
+    display: none;
+  }
+  
+  #headerLinks {
+    line-height: 2; /* For tapability */
+  }
+
+  .gameTitle {
+    display: none;
+  }
+
+  #advertisement {
+    margin: -8px;
+  }
+  
+  .mobileBadges {
+    float: none;
+  }
+  
+  #header {
+    margin-top: 30px;
+  }
+
+  /** Floating images should leave enough room for text */
+  #text .alignleft, #text .alignright {
+    max-width: 45%;
+  }
+  
+}
+.alertify-show,
 .alertify-log {
 	-webkit-transition: all 500ms cubic-bezier(0.175, 0.885, 0.320, 1); /* older webkit */
 	-webkit-transition: all 500ms cubic-bezier(0.175, 0.885, 0.320, 1.275);
@@ -9413,301 +10153,4 @@ stats = {};
 	.alertify-log-success {
 		background: #5CB811;
 		background: rgba(92,184,17,.9);
-	}body {
-  max-width: 680px;
-  _width:expression(this.scrollWidth > 680 ? "680px" : "auto");
-  font-size: 100%;  /* reset for CWS */
-  font: -apple-system-body; /* we'll override the font, but keep the size from iOS dynamic text sizing */
-  font-family: Georgia,"Times New Roman",serif;
-  background-color: #F7F4F1;
-  color: rgba(0, 0, 0, 0.85);
-  margin: 8px auto; 
-  padding: 0 8px;
-  -webkit-user-select: text; /* selectable text for Chrome app support */
-}
-
-a {
-  /* colored underlined links for XULRunner support */
-  color: blue;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-#main {
-	line-height: 1.5;
-}
-
-#text img {
-  max-width: 100%;
-}
-
-.statBar {
-  background-color: #949291;
-  height: 2em;
-  line-height: 2em;
-  margin: 4px 0;
-  width: 300px;
-  color: #f7f4f1;
-  position: relative; /* to allow absolute positioned value */
-  z-index: 0;
-}
-.opposed {
-  background-color: #6D6DFC;
-}
-
-table {
-  margin-bottom: 1.5em;
-}
-
-.statText {
-  margin-left: 2ex;
-  text-indent: -1ex;
-}
-
-.statBar > span, .statLine > span {
-  position: relative;
-  z-index: 1; /* visible over stat value */
-  white-space: nowrap; /* remain on single line so we can resize font based on width */
-}
-.statValue {
-  background-color: #ff5955;
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  z-index: -1;
-  /* width will be determined at runtime, 0-100% */
-}
-
-.choice label{
-    padding: 11px 8px 12px;
-    display:block;
-    border-color:#a9acaf;
-    border-style:solid;
-    border-width: 1px 1px 0px 1px
-}
-
-.choice .firstChild{
-    border-top-width:1px;
-    -webkit-border-top-right-radius:8px;
-    -webkit-border-top-left-radius:8px;
-    border-top-right-radius:8px;
-    border-top-left-radius:8px;
-}
-/* IE doesn't support label:last-child */
-.choice .lastChild{
-    border-bottom-width:1px;
-    -webkit-border-bottom-right-radius:8px;
-    -webkit-border-bottom-left-radius:8px;
-    -moz-border-radius:0px 0px 8px 8px;
-    border-bottom-right-radius:8px;
-    border-bottom-left-radius:8px;
-}
-.choice .onlyChild{
-    border-width:1px;
-    -webkit-border-radius:8px;
-    -moz-border-radius:8px;
-    border-radius:8px;
-}
-
-.choice .noBorder {
-  border-width: 0;
-}
-
-input[type="radio"], input[type="checkbox"] {
-  margin-right: 8px;
-}
-
-.saveGame>label {
-  display:block;
-}
-
-.choice .disabled {
-  color: gray;
-}
-
-input[type=password]:disabled {
-  background-color: lightgray;
-}
-
-/* Reset for Firefox vs. Chrome */
-input[type=email],input[type=password] {
-  padding: 1px;
-  margin: 2px 0;
-}
-
-.next {
-    clear: both;
-    display:block;
-    width:100%;
-    font-size:1.5em;
-    font-weight:bolder;
-    font-family: -apple-system, sans-serif; /* reset, for Android */
-    margin-bottom: 1em; /* reset button margin */
-    -webkit-appearance: none; /* Safari, don't override my CSS styles */
-    color: #f7f4f1; /* Match background color */ 
-    background-color: #626160;
-    border: none;
-    -webkit-border-radius: 0.5em;
-    -moz-border-radius: 0.5em;
-    border-radius: 0.5em;
-    padding: 6px;
-}
-
-.linkButton {
-  text-align: center;
-  text-decoration: none;
-}
-
-.next:hover {
-  color: #E4DED8;
-}
-
-h1 {
-  font-size: x-large;
-  font-weight: normal;
-}
-
-h2 {
-  font-size: large;
-  font-weight: normal;
-}
-
-#identity {
-  float: right;
-  display: none;
-}
-
-#identity > a {
-  display: block;
-  text-align: end;
-}
-
-#footer {
-  margin:10px 0px 75px 0px;
-}
-
-#mobileLinks a img {
-  border: 0;
-}
-
-.mobileBadges {
-  margin: 0;
-}
-
-.spacedLink {
-  margin-right:0.5em;
-}
-
-.spacedLink:last-child {
-  margin-right:0;
-}
-
-#sharelist {
-  margin: 0; /* Eliminate leading space before share links */
-}
-
-#sharelist li {
-  line-height: 1cm; /* Don't let the links bunch up */
-}
-
-.alertify-cover {
-  background-color: black;
-  filter:alpha(opacity=50);
-  opacity: 0.5;
-}
-
-#greybackground {
-    position: fixed;
-    width:100%;
-    height:100%;
-    background-color: black;
-    filter:alpha(opacity=50);
-    opacity: 0.5;
-    top:0;
-    left:0;
-}
-
-.savePassword {
-  font-family: monospace;
-  display: block;
-}
-
-.webOnly { /* We'll override this in JavaScript */
-  display: none;
-}
-
-.alignleft {
-  display: inline;
-  float: left;
-  margin-right: 1.625em;
-  margin-bottom: 1.5em;
-}
-.alignright {
-  display: inline;
-  float: right;
-  margin-left: 1.625em;
-  margin-bottom: 1.5em;
-}
-.aligncenter {
-  clear: both;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  margin-bottom: 1.5em;
-}
-
-#main form {
-  clear: both;
-}
-
-.paidOnly {
-  display: none;
-}
-
-.videoWrapper {
-  position: relative;
-  padding-bottom: 56.25%; /* 16:9 */
-  height: 0;
-}
-
-.videoWrapper iframe {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-
-@media only screen and (max-width: 480px) {
-  .definition{
-    display: none;
-  }
-  
-  #headerLinks {
-    line-height: 2; /* For tapability */
-  }
-
-  .gameTitle {
-    display: none;
-  }
-
-  #advertisement {
-    margin: -8px;
-  }
-  
-  .mobileBadges {
-    float: none;
-  }
-  
-  #header {
-    margin-top: 30px;
-  }
-
-  /** Floating images should leave enough room for text */
-  #text .alignleft, #text .alignright {
-    max-width: 45%;
-  }
-  
-}
-</style>
+	}</style>

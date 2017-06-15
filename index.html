@@ -70,7 +70,7 @@
 	<div class="main-wrap" data-bind="style: { borderColor: getUIColour(-30) }">
     <div id="headbar" data-bind="style: { backgroundColor: getUIColour() }, event: { dblclick: getPlatform() === 'web-dropbox' ? null : session.win.toggleMaximize() }" class="col-anim">
     <!-- ko if: getPlatform() != "mac_os" -->
-      <ul data-bind="foreach: getToolbarMenus" id="toolbar"><li data-bind="fadeVisible: (isActive() && $root.webFileBrowserClosed), style: { backgroundColor: $root.getUIColour(-20) }">
+      <ul data-bind="foreach: getToolbarMenus" id="toolbar"><li data-bind="fadeVisible: (isActive() && ($root.getPlatform() != 'web-dropbox' || $root.webFileBrowserClosed)), style: { backgroundColor: $root.getUIColour(-20) }">
         <button data-bind="click: toggle, html: getTitle, style: { backgroundColor: $root.getUIColour(-12) }"></button>
         <div class="menu" data-bind="fadeVisible: isExpanded, style: { backgroundColor: $root.getUIColour(-20) }, event: { mouseleave: toggle.bind(null, false) }">
             <ul data-bind="foreach: getOptions">
@@ -119,7 +119,7 @@
             <!-- /ko -->
           </div>
           <!-- lack of whitespace (line breaks) around scenes <li> is deliberate to avoid a jQuery + knockout bug -->
-          <ul class="project" data-bind="fadeAndSlideVisible: isExpanded, css: { 'project-collapsed': isExpanded() != true }, sortable: { data: getScenes, beforeMove: cside.dragSceneEvent, afterMove: cside.updatePersistenceList, options: { axis: 'y', cancel: 'input:not([readonly]), button', items: '.scene', connectWith: '#main-project-wrap > .project-wrapper > .project', placeholder: 'project-hover', containment: $('#main-project-wrap')} }"><li class="scene" data-bind="click: getErrState() ? load : select, css: { 'scene-selected': $data === $root.getSelectedScene() }">
+          <ul class="project" data-bind="fadeAndSlideVisible: isExpanded, css: { 'project-collapsed': isExpanded() != true }, sortable: { data: getScenes, beforeMove: cside.dragSceneEvent, afterMove: cside.updatePersistenceList, options: { axis: 'y', cancel: 'input:not([readonly]), button', items: '.scene', connectWith: '#main-project-wrap > .project-wrapper > .project', placeholder: 'project-hover', containment: $('#main-project-wrap')} }"><li class="scene" role="button" data-bind="click: getErrState() ? load : select, css: { 'scene-selected': $data === $root.getSelectedScene() }">
               <button class="save-scene" data-bind="click: getErrState() ? close : save, clickBubble: false, attr: { title: getErrState() ? getErrStateMsg : isReadOnly() ? 'Read-only' : 'Save ' + getName() + '.txt' }"><i data-bind="css: getState"></i></button>
               <button class="color-marker handle"  data-bind="attr: { title: 'Click to colour project ' + getName() }, click: recolour, clickBubble: false, style: { backgroundColor: getMarkColour }"></button>
               <!-- <span data-bind="text: getName(), event: { dblclick: rename }, attr: { title: getName }, fadeVisible: beingEdited() ? false : true"></span> -->
@@ -128,7 +128,7 @@
                 <span data-bind="text: getNameErrorMsg"></span>
               </div>
               <ul class="colour-picker" id="colour-picker" data-bind="fadeVisible: beingColoured, event: { mouseleave: recolour }, foreach: $root.getValidSceneColours">
-                <li class="colour-selector" data-bind="style: { backgroundColor: $data }, click: $parent.recolour, clickBubble: false"></li>
+                <li class="colour-selector" role="button" data-bind="style: { backgroundColor: $data }, click: $parent.recolour, clickBubble: false"></li>
               </ul>
             </li></ul>
         </li></ul>
@@ -234,7 +234,7 @@
     								<!-- ko if: id == 'settings' -->
     									<script type="text/html" id="setting-option-template">
     										<!-- ko if: getType() == "binary" -->
-    											<li data-bind="click: toggle">
+    											<li data-bind="click: toggle, visible: isVisible">
                             <i data-bind="css: getValue() ? 'fa fa-check-square-o fa-lg fa-fw setting-on' : 'fa fa-square-o fa-lg fa-fw setting-off'"></i>
     												<span class="setting-name" data-bind="text: getName()"></span>
                             <br>
@@ -242,7 +242,7 @@
     											</li>
     										<!-- /ko -->
     										<!-- ko if: getType() != "binary" -->
-    											<li>
+    											<li data-bind="visible: isVisible">
     												<span class="setting-name" data-bind="text: getName()"></span>
                             <br>
                             <span class="desc" data-bind="text: getDesc()"></span>

@@ -14,6 +14,13 @@ body {
     color:rgb(105, 105, 105);
     font-size:12px;
 }
+blockquote {
+    background: lightgrey;
+    padding: 10px;
+    border-radius: 5px;
+    color: #4e4e4e;
+    border: 1px solid grey;
+}
 table {
     margin: 0 auto;
     min-width: 80%;
@@ -83,8 +90,8 @@ a.show::after {
     list-style: none;
     margin: 0px;
 }
-.nav li {
-    height: 40px;
+.nav li > h3 {
+    font-weight: bold;
 }
 .nav li:nth-child(odd) > a {
      background-color: rgb(247, 247, 252);
@@ -225,7 +232,6 @@ pre {
     color: rgba(0, 0, 0, 1);
     border: solid 1px #C9C9C9;
     width: 90%;
-    height: 500px;
     overflow: auto;
     margin: 20px auto;
 }

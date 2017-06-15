@@ -5,7 +5,7 @@ Copyright 2010 by Dan Fabulich.
 
 Dan Fabulich licenses this file to you under the
 ChoiceScript License, Version 1.0 (the "License"); you may
-not use this file except in compliance with the License.
+not use this file except in compliance with the License. 
 You may obtain a copy of the License at
 
  http://www.choiceofgames.com/LICENSE-1.0.txt
@@ -30,6 +30,7 @@ either express or implied.
 
 
 
+<style id="dynamic"></style>
 
 
 
@@ -39,7 +40,7 @@ either express or implied.
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <script>
 // INSERT store name; disabled by default because it's confusing for newbie authors
-window.storeName = "null";
+window.storeName = null;
 //Scene.generatedFast = true;
 var rootDir = "../";
 </script>
@@ -851,9 +852,15 @@ return r;},version:'0.2.1',enabled:false};me.enabled=alive.call(me);return me;}(
 
         },
 
-        callIos: function(url) {
+        callIos: function(scheme, path) {
+          path = encodeURIComponent(path).replace(/[!~*')(]/g, function(match) {
+            return "%" + match.charCodeAt(0).toString(16);
+          });
+
+          var url = scheme + "://" + path;
           var iframe = document.createElement("IFRAME");
           iframe.setAttribute("src", url);
+          iframe.setAttribute("style", "display:none");
           document.documentElement.appendChild(iframe);
           iframe.parentNode.removeChild(iframe);
           iframe = null;
@@ -869,7 +876,7 @@ return r;},version:'0.2.1',enabled:false};me.enabled=alive.call(me);return me;}(
             delete window[nonce];
             fn.call(scope || this, true, value);
           }
-          this.callIos("storageget://" + key + " " + nonce);
+          this.callIos("storageget", key + " " + nonce);
         },
 
         set: function(key, val, fn, scope) {
@@ -882,7 +889,7 @@ return r;},version:'0.2.1',enabled:false};me.enabled=alive.call(me);return me;}(
             delete window[nonce];
             if (fn) fn.call(scope || this, true, val);
           }
-          this.callIos("storageset://" + key + " " + nonce + " " + encodeURIComponent(encodeURIComponent(val)));
+          this.callIos("storageset", key + " " + nonce + " " + encodeURIComponent(val));
         },
 
         remove: function(key, fn, scope) {
@@ -907,7 +914,7 @@ return r;},version:'0.2.1',enabled:false};me.enabled=alive.call(me);return me;}(
             delete window[nonce];
             if (fn) fn.call(scope || this, (val !== null), val);
           }
-          this.callIos("storagerem://" + key + " " + nonce + " " + encodeURIComponent(val));
+          this.callIos("storagerem", key + " " + nonce);
         } 
       }
     }, 
@@ -1546,17 +1553,17 @@ return r;},version:'0.2.1',enabled:false};me.enabled=alive.call(me);return me;}(
  */
 (function(e,t){"use strict";var n=e.document,r;r=function(){var r={},i={},s=!1,o={ENTER:13,ESC:27,SPACE:32},u=[],a,f,l,c,h;return i={buttons:{holder:'<nav class="alertify-buttons">{{buttons}}</nav>',submit:'<button type="submit" class="alertify-button alertify-button-ok" id="alertify-ok" />{{ok}}</button>',ok:'<a href="#" class="alertify-button alertify-button-ok" id="alertify-ok">{{ok}}</a>',cancel:'<a href="#" class="alertify-button alertify-button-cancel" id="alertify-cancel">{{cancel}}</a>'},input:'<div class="alertify-text-wrapper"><input type="text" class="alertify-text" id="alertify-text"></div>',message:'<p class="alertify-message">{{message}}</p>',log:'<article class="alertify-log{{class}}">{{message}}</article>'},a=function(e){return n.getElementById(e)},r={labels:{ok:"OK",cancel:"Cancel"},delay:5e3,addListeners:function(r){var i=a("alertify-resetFocus"),s=a("alertify-ok")||t,u=a("alertify-cancel")||t,f=a("alertify-text")||t,l=a("alertify-form")||t,c=typeof s!="undefined",h=typeof u!="undefined",p=typeof f!="undefined",d="",v=this,m,g,y,b,w;m=function(e){typeof e.preventDefault!="undefined"&&e.preventDefault(),y(e),typeof f!="undefined"&&(d=f.value),typeof r=="function"&&r(!0,d)},g=function(e){typeof e.preventDefault!="undefined"&&e.preventDefault(),y(e),typeof r=="function"&&r(!1)},y=function(e){v.hide(),v.unbind(n.body,"keyup",b),v.unbind(i,"focus",w),p&&v.unbind(l,"submit",m),c&&v.unbind(s,"click",m),h&&v.unbind(u,"click",g)},b=function(e){var t=e.keyCode;t===o.SPACE&&!p&&m(e),t===o.ESC&&h&&g(e)},w=function(e){p?f.focus():h?u.focus():s.focus()},this.bind(i,"focus",w),c&&this.bind(s,"click",m),h&&this.bind(u,"click",g),this.bind(n.body,"keyup",b),p&&this.bind(l,"submit",m),e.setTimeout(function(){f?(f.focus(),f.select()):s.focus()},50)},bind:function(e,t,n){typeof e.addEventListener=="function"?e.addEventListener(t,n,!1):e.attachEvent&&e.attachEvent("on"+t,n)},build:function(e){var t="",n=e.type,r=e.message,s=e.cssClass||"";t+='<div class="alertify-dialog">',n==="prompt"&&(t+='<form id="alertify-form">'),t+='<article class="alertify-inner">',t+=i.message.replace("{{message}}",r),n==="prompt"&&(t+=i.input),t+=i.buttons.holder,t+="</article>",n==="prompt"&&(t+="</form>"),t+='<a id="alertify-resetFocus" class="alertify-resetFocus" href="#">Reset Focus</a>',t+="</div>";switch(n){case"confirm":t=t.replace("{{buttons}}",i.buttons.cancel+i.buttons.ok),t=t.replace("{{ok}}",this.labels.ok).replace("{{cancel}}",this.labels.cancel);break;case"prompt":t=t.replace("{{buttons}}",i.buttons.cancel+i.buttons.submit),t=t.replace("{{ok}}",this.labels.ok).replace("{{cancel}}",this.labels.cancel);break;case"alert":t=t.replace("{{buttons}}",i.buttons.ok),t=t.replace("{{ok}}",this.labels.ok);break;default:}return c.className="alertify alertify-show alertify-"+n+" "+s,l.className="alertify-cover",t},close:function(e,t){var n=t&&!isNaN(t)?+t:this.delay;this.bind(e,"click",function(){h.removeChild(e)}),setTimeout(function(){typeof e!="undefined"&&e.parentNode===h&&h.removeChild(e)},n)},dialog:function(e,t,r,i,o){f=n.activeElement;var a=function(){if(c&&c.scrollTop!==null)return;a()};if(typeof e!="string")throw new Error("message must be a string");if(typeof t!="string")throw new Error("type must be a string");if(typeof r!="undefined"&&typeof r!="function")throw new Error("fn must be a function");return typeof this.init=="function"&&(this.init(),a()),u.push({type:t,message:e,callback:r,placeholder:i,cssClass:o}),s||this.setup(),this},extend:function(e){if(typeof e!="string")throw new Error("extend method must have exactly one paramter");return function(t,n){return this.log(t,e,n),this}},hide:function(){u.splice(0,1),u.length>0?this.setup():(s=!1,c.className="alertify alertify-hide alertify-hidden",l.className="alertify-cover alertify-hidden",f?f.focus():null)},init:function(){n.createElement("nav"),n.createElement("article"),n.createElement("section"),l=n.createElement("div"),l.setAttribute("id","alertify-cover"),l.className="alertify-cover alertify-hidden",n.body.appendChild(l),c=n.createElement("section"),c.setAttribute("id","alertify"),c.className="alertify alertify-hidden",n.body.appendChild(c),h=n.createElement("section"),h.setAttribute("id","alertify-logs"),h.className="alertify-logs",n.body.appendChild(h),n.body.setAttribute("tabindex","0"),delete this.init},log:function(e,t,n){var r=function(){if(h&&h.scrollTop!==null)return;r()};return typeof this.init=="function"&&(this.init(),r()),this.notify(e,t,n),this},notify:function(e,t,r){var i=n.createElement("article");i.className="alertify-log"+(typeof t=="string"&&t!==""?" alertify-log-"+t:""),i.innerHTML=e,h.insertBefore(i,h.firstChild),setTimeout(function(){i.className=i.className+" alertify-log-show"},50),this.close(i,r)},set:function(e){var t;if(typeof e!="object"&&e instanceof Array)throw new Error("args must be an object");for(t in e)e.hasOwnProperty(t)&&(this[t]=e[t])},setup:function(){var e=u[0];s=!0,c.innerHTML=this.build(e),typeof e.placeholder=="string"&&e.placeholder!==""&&(a("alertify-text").value=e.placeholder),this.addListeners(e.callback)},unbind:function(e,t,n){typeof e.removeEventListener=="function"?e.removeEventListener(t,n,!1):e.detachEvent&&e.detachEvent("on"+t,n)}},{alert:function(e,t,n){return r.dialog(e,"alert",t,"",n),this},confirm:function(e,t,n){return r.dialog(e,"confirm",t,"",n),this},extend:r.extend,init:r.init,log:function(e,t,n){return r.log(e,t,n),this},prompt:function(e,t,n,i){return r.dialog(e,"prompt",t,n,i),this},success:function(e,t){return r.log(e,"success",t),this},error:function(e,t){return r.log(e,"error",t),this},set:function(e){r.set(e)},labels:r.labels}},typeof define=="function"?define([],function(){return new r}):typeof e.alertify=="undefined"&&(e.alertify=new r)})(this);/*
  * Copyright 2010 by Dan Fabulich.
- *
+ * 
  * Dan Fabulich licenses this file to you under the
  * ChoiceScript License, Version 1.0 (the "License"); you may
- * not use this file except in compliance with the License.
+ * not use this file except in compliance with the License. 
  * You may obtain a copy of the License at
- *
+ * 
  *  http://www.choiceofgames.com/LICENSE-1.0.txt
- *
+ * 
  * See the License for the specific language governing
  * permissions and limitations under the License.
- *
+ * 
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
@@ -1576,6 +1583,10 @@ _global = this;
   _global.isMobile = _global.isWebOS || /Mobile/.test(userAgent);
   _global.isFile = /^file:/.test(url);
   _global.isXul = /^chrome:/.test(url);
+  try {
+    _global.greenworks = require('greenworks');
+    _global.isGreenworks = true;
+  } catch (ignored) {}
   _global.isWinOldApp = false;
   try {
     isWinOldApp = window.external.IsWinOldApp();
@@ -1589,6 +1600,7 @@ _global = this;
   _global.isKindleFire = /Kindle Fire/.test(userAgent);
   _global.isWinStoreApp = "ms-appx:" == protocol;
   _global.isCef = !!_global.cefQuery;
+  _global.isNode = typeof process !== "undefined";
 })();
 
 _global.loadTime = new Date().getTime();
@@ -1596,7 +1608,9 @@ _global.loadTime = new Date().getTime();
 function callIos(scheme, path) {
   if (!_global.isIosApp) return;
   if (path) {
-    path = encodeURIComponent(path);
+    path = encodeURIComponent(path).replace(/[!~*')(]/g, function(match) {
+      return "%" + match.charCodeAt(0).toString(16);
+    });
   } else {
     path = "";
   }
@@ -1897,6 +1911,7 @@ function recordDirtySlots(slots, callback) {
 
 function recordEmail(email, callback) {
   if (initStore()) {
+    window.recordedEmail = email;
     window.store.set("email", email, safeCallback(callback));
   } else {
     safeTimeout(callback, 0);
@@ -1912,6 +1927,7 @@ function fetchEmail(callback) {
   // adding a fallback timeout
   window.store.get("email", function(ok, value) {
     safeCall(null, function() {
+      if (ok) window.recordedEmail = value;
       if (!callback) return;
       var temp = callback;
       callback = null;
@@ -2254,7 +2270,7 @@ function isStateValid(state) {
 }
 
 function restartGame(shouldPrompt) {
-  if (window.tickerRunning) {
+  if (window.blockRestart) {
     asyncAlert("Please wait until the timer has run out.");
     return;
   }
@@ -2377,7 +2393,7 @@ function findOptimalDomain(docDomain) {
 
 function num(x, line) {
     if (!line) line = "UNKNOWN";
-    var x_num = x * 1;
+    var x_num = parseFloat(x);
     if (isNaN(x_num)) throw new Error("line "+line+": Not a number: " + x);
     return x_num;
 }
@@ -2411,8 +2427,8 @@ function findXhr() {
     /* Number */
     function crc32( /* String */ str, /* Number */ crc ) {
         if( !crc ) crc = 0;
-        var n = 0; //a number between 0 and 255
-        var x = 0; //an hex number
+        var n = 0; //a number between 0 and 255 
+        var x = 0; //an hex number 
 
         crc = crc ^ (-1);
         for( var i = 0, iTop = str.length; i < iTop; i++ ) {
@@ -2428,7 +2444,13 @@ function simpleDateTimeFormat(date) {
   var month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][date.getMonth()];
   var minutes = date.getMinutes();
   if (minutes < 10) minutes = "0" + (""+minutes);
-  return day + " " + month + " " + date.getDate() + " " + date.getHours() + ":" + minutes;
+  var oneYearInMillis = 1000 * 60 * 60 * 24 * 365;
+  var millisAgo = new Date().getTime() - date.getTime();
+  var yearString = ""
+  if (millisAgo > oneYearInMillis) {
+    yearString = ", " + date.getFullYear();
+  }
+  return day + ", " + month + " " + date.getDate() + yearString + ", " + date.getHours() + ":" + minutes;
 }
 
 function jsonParse(str) {
@@ -2595,11 +2617,13 @@ function showMenu() {
   function menu() {
     options = [
       {name:"Return to the game.", group:"choice", resume:true},
-      {name:"View the credits.", group:"choice", credits:true},
+      /*{name:"View the credits.", group:"choice", credits:true},
       {name:"Play more games like this.", group:"choice", moreGames:true},
       {name:"Email us at " + getSupportEmail() + ".", group:"choice", contactUs:true},
       {name:"Share this game with friends.", group:"choice", share:true},
-      {name:"Email me when new games are available.", group:"choice", subscribe:true},
+      {name:"Email me when new games are available.", group:"choice", subscribe:true},*/
+      {name:"Make the text bigger or smaller.", group:"choice", fontSizeMenu:true},
+      {name:"Change the background color.", group:"choice", background:true},
     ];
     printOptions([""], options, function(option) {
       if (option.resume) {
@@ -2621,6 +2645,10 @@ function showMenu() {
         subscribeLink();
       } else if (option.contactUs) {
         window.location.href="mailto:"+getSupportEmail();
+      } else if (option.fontSizeMenu) {
+        fontSizeMenu();
+      } else if (option.background) {
+        backgroundColorMenu();
       }
     });
   }
@@ -2631,7 +2659,11 @@ function setButtonTitles() {
   var button;
   button = document.getElementById("menuButton");
   if (button) {
-    button.innerHTML = "Menu";
+    if (window.isWeb) {
+      menuButton.innerHTML = "Settings";
+    } else {
+      button.innerHTML = "Menu";
+    }
   }
   button = document.getElementById("statsButton");
   if (button) {
@@ -2646,8 +2678,145 @@ function setButtonTitles() {
       button.style.display = "none";
     }
   }
-
 }
+
+function fontSizeMenu() {
+  clearScreen(function() {
+    var text = document.getElementById("text");
+    var oldZoom = getZoomFactor();
+    text.innerHTML = "<p>Make the text bigger or smaller.</p>";
+    options = [
+      {name:"Return to the game.", group:"choice", resume:true},
+      {name:"Make the text bigger.", group:"choice", bigger:true},
+      {name:"Make the text smaller.", group:"choice", smaller:true},
+    ];
+    if (oldZoom <= 0.5) {
+      options[options.length-1].unselectable = true;
+    }
+    if (oldZoom !== 1) {
+      options.push({name:"Reset the text to its original size.", group:"choice", reset:true});
+    }
+    printOptions([""], options, function(option) {
+      if (option.resume) {
+        setButtonTitles();
+        return clearScreen(loadAndRestoreGame);
+      } else if (option.reset) {
+        setZoomFactor(1);
+        fontSizeMenu();
+      } else {
+        changeFontSize(option.bigger);
+        fontSizeMenu();
+      }
+    })
+  });
+}
+
+function textOptionsMenu() {
+  clearScreen(function() {
+    var text = document.getElementById("text");
+    var oldZoom = getZoomFactor();
+    text.innerHTML = "<p>Change the size and color of the text.</p>";
+    options = [
+      {name:"Return to the game.", group:"choice", resume:true},
+      {name:"Make the text bigger.", group:"choice", bigger:true},
+      {name:"Make the text smaller.", group:"choice", smaller:true},
+    ];
+    if (oldZoom <= 0.5) {
+      options[options.length-1].unselectable = true;
+    }
+    if (oldZoom !== 1) {
+      options.push({name:"Reset the text to its original size.", group:"choice", reset:true});
+    }
+    options.push(
+      {name:"Use a black background.", group:"choice", color:"black"},
+      {name:"Use a sepia background.", group:"choice", color:"sepia"},
+      {name:"Use a white background.", group:"choice", color:"white"}
+    );
+    printOptions([""], options, function(option) {
+      if (option.resume) {
+        setButtonTitles();
+        return clearScreen(loadAndRestoreGame);
+      } else if (option.color) {
+        changeBackgroundColor(option.color);
+      } else if (option.reset) {
+        setZoomFactor(1);
+        textOptionsMenu();
+      } else {
+        changeFontSize(option.bigger);
+        textOptionsMenu();
+      }
+      curl();
+    })
+    curl();
+  });
+}
+
+function getZoomFactor() {
+  if (document.body.style.zoom === undefined) {
+    return window.zoomFactor || 1;
+  } else {
+    var zoomFactor = parseFloat(document.body.style.zoom);
+    if (isNaN(zoomFactor)) zoomFactor = 1;
+    return zoomFactor;
+  }
+}
+
+function setZoomFactor(zoomFactor) {
+  if (document.body.style.zoom === undefined) {
+    var initialMaxWidth = 680;
+    document.body.style.maxWidth = (initialMaxWidth / zoomFactor) + "px";
+    document.body.style.transformOrigin = "center top";
+    document.body.style.transform = "scale("+zoomFactor+")";
+    window.zoomFactor = zoomFactor;
+  } else {
+    document.body.style.zoom = zoomFactor;
+  }
+  if (initStore()) store.set("preferredZoom", String(zoomFactor));
+}
+
+function changeFontSize(bigger) {
+  var oldZoom = getZoomFactor();
+  if (bigger) {
+    setZoomFactor(oldZoom + 0.1);
+  } else {
+    setZoomFactor(oldZoom - 0.1);
+  }
+}
+
+function changeBackgroundColor(color) {
+  if (color === "sepia") {
+    document.body.classList.remove("nightmode", "whitemode");
+  } else if (color === "black") {
+    document.body.classList.remove("whitemode");
+    document.body.classList.add("nightmode");
+  } else if (color === "white") {
+    document.body.classList.remove("nightmode");
+    document.body.classList.add("whitemode");
+  }
+  if (initStore()) store.set("preferredBackground", color);
+}
+
+function backgroundColorMenu() {
+  clearScreen(function() {
+    var text = document.getElementById("text");
+    text.innerHTML = "<p>Change the background color.</p>";
+    options = [
+      {name:"Return to the game.", group:"choice", resume:true},
+      {name:"Use a black background.", group:"choice", color:"black"},
+      {name:"Use a sepia background.", group:"choice", color:"sepia"},
+      {name:"Use a white background.", group:"choice", color:"white"},
+    ];
+    printOptions([""], options, function(option) {
+      if (option.resume) {
+        setButtonTitles();
+        return clearScreen(loadAndRestoreGame);
+      } else {
+        changeBackgroundColor(option.color);
+      }
+    })
+  });
+}
+
 
 
 function spell(num) {
@@ -3043,16 +3212,20 @@ function printOptionRadioButton(div, name, option, localChoiceNumber, globalChoi
       }
     }
     printx(line, label);
-
+    
     div2.appendChild(label);
     div.appendChild(div2);
 }
 
-function printImage(source, alignment, alt) {
+function printImage(source, alignment, alt, invert) {
   var img = document.createElement("img");
   img.src = source;
   if (alt !== null && String(alt).length > 0) img.setAttribute("alt", alt);
-  setClass(img, "align"+alignment);
+  if (invert) {
+    setClass(img, "invert align"+alignment);
+  } else {
+    setClass(img, "align"+alignment);
+  }
   document.getElementById("text").appendChild(img);
 }
 
@@ -3066,6 +3239,19 @@ function playSound(source) {
     document.body.appendChild(audio);
     audio.play();
   }
+}
+
+function printYoutubeFrame(slug) {
+  var wrapper = document.createElement("div");
+  setClass(wrapper, "videoWrapper");
+  var iframe = document.createElement("iframe");
+  iframe.width="560";
+  iframe.height="315";
+  iframe.src="https://www.youtube.com/embed/"+slug;
+  iframe.setAttribute("frameborder", 0);
+  iframe.setAttribute("allowfullscreen", true);
+  wrapper.appendChild(iframe);
+  document.getElementById("text").appendChild(wrapper);
 }
 
 function moreGames() {
@@ -3162,8 +3348,6 @@ function printShareLinks(target, now) {
         mobileMesg = "  <li><a href='"+chromeUrl+"/reviews'>Rate this app</a> in the Chrome Web Store</li>\n";
       }
     }
-  } else if (window.isSteamApp) {
-    mobileMesg = "  <li><a href='#' onclick='try { purchase(\"adfree\", function() {}); } catch (e) {}; return false;'>Review this game</a> on Steam</li>\n";
   }
 
   var url = window.location.href;
@@ -3222,8 +3406,14 @@ function shareAction(e) {
   });
 }
 
+function isReviewSupported() {
+  return !!(window.isIosApp || window.isAndroidApp);
+}
+
 function isFollowEnabled() {
   if (!window.isWeb) return false;
+  // iOS add to homescreen seems not to like these iframes
+  if (window.navigator.standalone) return false;
   if ("localhost" != window.location.hostname && !/\.?choiceofgames\.com$/.test(window.location.hostname)) return false;
   return true;
 }
@@ -3247,33 +3437,38 @@ function printFollowButtons() {
 
 function subscribeLink(e) {
   clearScreen(function() {
-    subscribe(document.getElementById('text'), "now", function() {
+    subscribe(document.getElementById('text'), {now:1}, function() {
       clearScreen(loadAndRestoreGame);
     });
   });
 }
 
-function subscribeByMail(target, now, callback, code) {
-  if (now) {
+function subscribeByMail(target, options, callback, code) {
+  if (options.now) {
     code();
-    safeTimeout(function() {callback(now);}, 0);
+    if (options.allowContinue) safeTimeout(function() {callback("now");}, 0);
   } else {
-    println("Click here to subscribe to our mailing list; we'll notify you when our next game is ready!");
+    println("Click here to subscribe to our mailing list; " + options.message);
     println("");
     printButton("Subscribe", target, false, function() {
         code();
       });
-    printButton("Next", target, false, function() {
-      safeTimeout(function() {callback(now);}, 0);
-    });
-    printFooter();
+    if (options.allowContinue) {
+      printButton("No, Thanks", target, false, function() {
+        safeTimeout(function() {callback();}, 0);
+      });
+    }
+    // why is this timeout necessary?
+    safeTimeout(function() {printFooter();}, 0);
   }
 }
 
-function subscribe(target, now, callback) {
+function subscribe(target, options, callback) {
+  if (!options.message) options.message = "we'll notify you when our next game is ready!";
+  if (typeof options.allowContinue === "undefined") options.allowContinue = 1;
   if (!target) target = document.getElementById('text');
   if (window.isIosApp) {
-    subscribeByMail(target, now, callback, function() {
+    subscribeByMail(target, options, callback, function() {
       callIos("subscribe");
     });
     return;
@@ -3281,15 +3476,15 @@ function subscribe(target, now, callback) {
   var mailToSupported = isMobile && !window.isMacApp;
   if (window.isAndroidApp) mailToSupported = urlSupport.isSupported("mailto:support@choiceofgames.com");
   if (mailToSupported) {
-    subscribeByMail(target, now, callback, function() {
+    subscribeByMail(target, options, callback, function() {
       window.location.href = "mailto:subscribe-"+window.storeName+"-"+platformCode() + "@choiceofgames.com?subject=Sign me up&body=Please notify me when the next game is ready.";
     });
     return;
   }
-  println("Type your email address below; we'll notify you when our next game is ready!");
+  println("Type your email address below; " + options.message);
   println("");
   fetchEmail(function(defaultEmail) {
-    promptEmailAddress(target, defaultEmail, function(cancel, email) {
+    promptEmailAddress(target, defaultEmail, options.allowContinue, function(cancel, email) {
       if (cancel) {
         return safeCall(null, callback);
       }
@@ -3311,9 +3506,11 @@ function subscribe(target, now, callback) {
             target = document.getElementById('text');
             println(response.msg, target);
             println("", target);
-            printButton("Next", target, false, function() {
-              safeCall(null, callback);
-            });
+            if (options.allowContinue) {
+              printButton("Next", target, false, function() {
+                safeCall(null, callback);
+              });
+            }
           });
         }
       };
@@ -3381,6 +3578,64 @@ function subscribe(target, now, callback) {
   });
 }
 
+function downloadLink(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  if (window.releaseDate && new Date() < window.releaseDate) {
+    return asyncAlert("You'll need to wait until after the game is released on " + window.releaseDate);
+  }
+  clearScreen(function() {
+    var text = document.getElementById("text");
+    if (window.knownPurchases && window.knownPurchases.adfree) {
+      println("You can download the game using the links below.");
+      println("");
+      var files = {
+        Windows: window.downloadName + " Setup " + window.downloadVersion + "-ia32.exe",
+        Mac: window.downloadName + "-" + window.downloadVersion + ".dmg",
+        Linux: window.downloadPackage + "-" + window.downloadVersion + "-ia32.deb"
+      }
+      var detectedOs;
+      if (/Windows/.test(navigator.userAgent)) {
+        detectedOs = "Windows";
+      } else if (/Mac OS X/.test(navigator.userAgent)) {
+        detectedOs = "Mac";
+      } else if (/Linux/.test(navigator.userAgent)) {
+        detectedOs = "Linux";
+      }
+      if (detectedOs) {
+        printDownloadLink(detectedOs);
+      }
+      for (var os in files) {
+        if (detectedOs != os) printDownloadLink(os);
+      }
+      function printDownloadLink(os) {
+        var link = document.createElement("a");
+        if (detectedOs == os) {
+          setClass(link, "next linkButton");
+        } else {
+          link.style.display = "block";
+        }
+        link.innerHTML = "Download for " + os;
+        link.href = "scenes/"+files[os];
+        text.appendChild(link);
+      }
+      println("");
+      printButton("Next", text, false, function() {
+        safeCall(null, function() { clearScreen(loadAndRestoreGame); });
+      });
+    } else {
+      println("To download this game for Windows, Mac, or Linux, you'll need to purchase it first.");
+      println("");
+      printOptions([""], [{name:"Purchase it now.", purchase:1}, {name:"No, thanks.", cancel:1}], function(option) {
+        if (option.purchase) {
+          purchase("adfree", downloadLink);
+        } else {
+          safeCall(null, function() { clearScreen(loadAndRestoreGame); });
+        }
+      });
+    }
+  });
+}
+
 function cacheKnownPurchases(knownPurchases) {
   if (!knownPurchases) return;
   var output = {billingSupported:true};
@@ -3390,28 +3645,14 @@ function cacheKnownPurchases(knownPurchases) {
     output[parts[1]] = true;
   }
   window.knownPurchases = output;
-}
-
-function getKnownPurchases(callback) {
-  isRegistered(function(registered){
-    if (registered) {
-      startLoading();
-      xhrAuthRequest("GET", "get-purchases", function(ok, response) {
-        doneLoading();
-        if (ok) {
-          cacheKnownPurchases(response);
-        } else {
-          if (response.error != "not registered") {
-            alertify.error("There was an error downloading your purchases from Choiceofgames.com. "+
-              "Please refresh this page to try again, or contact support@choiceofgames.com for assistance.", 15000);
-          }
-        }
-        callback(ok, window.knownPurchases);
-      });
-    } else {
-      callback("ok", {billingSupported: true});
-    }
-  });
+  fetchEmail(function(email) {
+    if (email) window.store.set("knownPurchases"+email.replace(/[^A-z0-9]/g, "_"), JSON.stringify(window.knownPurchases));
+  })
+  if (window.isIosApp) {
+    callIos("updateadfree", output.adfree);
+  } else if (window.isAndroidApp) {
+    androidBilling.updateAdfree(!!output.adfree);
+  }
 }
 
 // Callback expects a map from product ids to booleans
@@ -3424,18 +3665,57 @@ function checkPurchase(products, callback) {
     }
   }
 
+  function checkWebPurchases(callback) {
+    isRegistered(function (registered) {
+      if (!registered) return callback("ok", {billingSupported: true});
+      if (window.knownPurchases) {
+        safeTimeout(function() {
+          callback("ok", window.knownPurchases);
+          publishPurchaseEvents(knownPurchases);
+        }, 0);
+      } else {
+        startLoading();
+        xhrAuthRequest("GET", "get-purchases", function(ok, response) {
+          doneLoading();
+          if (ok) {
+            cacheKnownPurchases(response);
+            callback(ok, window.knownPurchases);
+          } else {
+            fetchEmail(function(email) {
+              if (!email) return callback(ok, window.knownPurchases);
+              window.store.get("knownPurchases"+email.replace(/[^A-z0-9]/g, "_"), function(ok, value) {
+                if (ok) {
+                  window.knownPurchases = JSON.parse(value);
+                }
+                callback(ok, window.knownPurchases);
+                publishPurchaseEvents(window.knownPurchases);
+              })
+            });
+          }
+        });
+      }
+    });
+  }
+
+  function mergeKnownPurchases(purchases) {
+    checkWebPurchases(function(ok, knownPurchases) {
+      if (knownPurchases) {
+        var productList = products.split(/ /);
+        for (i = 0; i < productList.length; i++) {
+          if (knownPurchases[productList[i]]) purchases[productList[i]] = knownPurchases[productList[i]];
+        }
+      }
+      callback("ok", purchases);
+      publishPurchaseEvents(purchases);
+    });
+  }
+
   var i;
   if (window.isIosApp) {
-    window.checkPurchaseCallback = function(purchases) {
-      callback("ok",purchases);
-      publishPurchaseEvents(purchases);
-    };
+    window.checkPurchaseCallback = mergeKnownPurchases;
     callIos("checkpurchase", products);
   } else if (window.isAndroidApp && !window.isNookAndroidApp) {
-    window.checkPurchaseCallback = function(purchases) {
-      callback("ok",purchases);
-      publishPurchaseEvents(purchases);
-    };
+    window.checkPurchaseCallback = mergeKnownPurchases;
     androidBilling.checkPurchase(products);
   } else if (window.isWinOldApp) {
     safeTimeout(function() {
@@ -3463,26 +3743,34 @@ function checkPurchase(products, callback) {
         callback(!"ok");
       }
     });
-  } else if (isWebPurchaseSupported()) {
-    isRegistered(function (registered) {
-      if (!registered) return callback("ok", {billingSupported: true});
-      if (window.knownPurchases) {
-        safeTimeout(function() {
-          callback("ok", knownPurchases);
-          publishPurchaseEvents(knownPurchases);
-        }, 0);
-      } else {
-        getKnownPurchases(function(ok, purchases){
-          callback(ok, purchases);
-          publishPurchaseEvents(purchases);
-        });
+  } else if (window.isGreenworks) {
+    var greenworks = require('greenworks');
+    var greenworksApps = require('../package.json').products;
+    var purchases = {};
+    var productList = products.split(/ /);
+    for (i = 0; i < productList.length; i++) {
+      var appId = greenworksApps[productList[i]];
+      var purchased = false;
+      try {
+        purchased = greenworks.isSubscribedApp(appId);
+      } catch (e) {
+        return safeTimeout(function() {callback(!"ok");}, 0);
       }
+      purchases[productList[i]] = purchased;
+    }
+    purchases.billingSupported = true;
+    publishPurchaseEvents(purchases);
+    safeTimeout(function() {callback("ok", purchases);}, 0);
+  } else if (isWebPurchaseSupported()) {
+    checkWebPurchases(function(ok, knownPurchases) {
+      callback(ok, knownPurchases);
+      publishPurchaseEvents(window.knownPurchases);
     });
   } else {
     var productList = products.split(/ /);
     var purchases = {};
     for (i = 0; i < productList.length; i++) {
-      purchases[productList[i]] = true;
+      purchases[productList[i]] = !!window.isChromeApp;
     }
     purchases.billingSupported = false;
     publishPurchaseEvents(purchases);
@@ -3498,26 +3786,67 @@ function isRestorePurchasesSupported() {
   return !!window.isIosApp || !!window.isAndroidApp || isWebPurchaseSupported();
 }
 
-function restorePurchases(callback) {
+function restorePurchases(product, callback) {
+  function webRestoreCallback() {
+    var purchased = window.knownPurchases && window.knownPurchases[product];
+    if (!purchased) {
+      if (window.isAndroidApp) {
+        asyncAlert("Restore completed. This product is not yet purchased. Sometimes purchases can fail to restore for reasons outside our control. If you have already purchased this product, try uninstalling and reinstalling the app. If that doesn't work, please email a copy of your receipt to " + getSupportEmail() + " and we'll find a way to help you.");
+      } else {
+        asyncAlert("Restore completed. This product is not yet purchased.");
+      }
+    }
+    callback(purchased);
+  }
+  function secondaryRestore(error) {
+    window.restoreCallback = null;
+    if (product) {
+      checkPurchase(product, function(ok, purchases) {
+        if (purchases[product]) {
+          callback("purchased");
+        } else {
+          clearScreen(function() {
+            var target = document.getElementById('text');
+            if (error) {
+              target.innerHTML="<p>Restore failed. Please try again later, or sign in to Choiceofgames.com to restore purchases.</p>";
+            } else {
+              target.innerHTML="<p>Restore completed. This product is not yet purchased. You may also sign in to Choiceofgames.com to restore purchases.</p>";
+            }
+            loginForm(document.getElementById('text'), /*optionality*/1, /*err*/null, webRestoreCallback);
+          });
+        }
+      });
+    } else {
+      callback();
+    }
+  }
   if (window.isIosApp) {
-    window.restoreCallback = callback;
+    window.restoreCallback = secondaryRestore;
     callIos("restorepurchases");
   } else if (window.isAndroidApp) {
-    window.restoreCallback = function(error) {
-      window.restoreCallback = null;
-      callback(error);
-    };
+    window.restoreCallback = secondaryRestore;
     androidBilling.forceRestoreTransactions();
   } else if (isWebPurchaseSupported()) {
     isRegistered(function(registered) {
-      var restoreCallback = function() {callback();};
       if (registered) {
-        getKnownPurchases(restoreCallback);
+        startLoading();
+        xhrAuthRequest("GET", "get-purchases", function(ok, response) {
+          doneLoading();
+          if (ok) {
+            cacheKnownPurchases(response);
+          } else {
+            if (response.error != "not registered") {
+              alertify.error("There was an error downloading your purchases from Choiceofgames.com. "+
+                "Please refresh this page to try again, or contact " + getSupportEmail() + " for assistance.", 15000);
+            }
+          }
+          webRestoreCallback();
+        });
       } else {
         clearScreen(function() {
           var target = document.getElementById('text');
           target.innerHTML="<p>Please sign in to Choiceofgames.com to restore purchases.</p>";
-          loginForm(document.getElementById('text'), /*optional*/1, /*err*/null, restoreCallback);
+          loginForm(document.getElementById('text'), /*optional*/1, /*err*/null, webRestoreCallback);
         });
       }
     });
@@ -3533,9 +3862,41 @@ function getPrice(product, callback) {
   } else if (window.isAndroidApp) {
     window.priceCallback = callback;
     androidBilling.getPrice(product);
+  } else if (window.isWeb) {
+    if (window.productData && window.productData[product] && window.productData[product].amount) {
+      safeTimeout(function () {
+        callback.call(this, "$"+(productData[product].amount/100));
+      }, 0);
+    } else {
+      safeTimeout(function() {
+        if (window.productData && window.productData[product] && window.productData[product].amount) {
+          callback.call(this, "$"+(productData[product].amount/100));
+        } else {
+          callback.call(this, "guess");
+        }
+      }, 500);
+    }
+  } else if (window.isGreenworks) {
+    if (window.productData && window.productData[product]) {
+      safeTimeout(function () {
+        callback.call(this, productData[product]);
+      }, 0);
+    } else {
+      window.awaitSteamProductData = function() {
+        doneLoading();
+        window.awaitSteamProductData = null;
+        if (window.productData && window.productData[product]) {
+          callback.call(this, productData[product]);
+        } else {
+          callback.call(this, "hide");
+        }
+      };
+      startLoading();
+      safeTimeout(function() {if (window.awaitSteamProductData) awaitSteamProductData();}, 5000);
+    }
   } else {
     safeTimeout(function () {
-      callback.call(this, "guess");
+      callback.call(this, "hide");
     }, 0);
   }
 }
@@ -3559,6 +3920,9 @@ function purchase(product, callback) {
     window.external.Purchase(product);
   } else if (window.isMacApp && window.macPurchase) {
     macPurchase.purchase_(product);
+  } else if (window.isGreenworks) {
+    var greenworksApps = require('../package.json').products;
+    if (greenworksApps[product]) require("electron").shell.openExternal("steam://advertise/"+greenworksApps[product]);
   } else if (window.isCef) {
     cefQuerySimple("Purchase " + product);
     // no callback; we'll refresh on purchase
@@ -3574,7 +3938,7 @@ function purchase(product, callback) {
       if (!href) return webStoreFallback();
       window.location.href = href;
     };
-
+    
     // instead of IAP, send the user to a store
     if (/(iPhone OS|iPad)/.test(navigator.userAgent)) {
       if (/iPhone OS [456]_/.test(navigator.userAgent)) {
@@ -3596,70 +3960,65 @@ function purchase(product, callback) {
     if (!window.StripeCheckout) return asyncAlert("Sorry, we weren't able to initiate payment. (Your "+
       "network connection may be down.) Please refresh the page and try again, or contact "+
       "support@choiceofgames.com for assistance.");
-    startLoading();
-    isRegistered(function(registered) {
-      doneLoading();
-      var fullProductName = window.storeName + "." + product;
-      function stripe(email) {
-        startLoading();
-        xhrAuthRequest("GET", "product-data", function(ok, data) {
-          doneLoading();
-          if (!ok) return asyncAlert("Sorry, we weren't able to initiate payment. (Your "+
-            "network connection may be down.) Please refresh the page and try again, or contact "+
-            "support@choiceofgames.com for assistance.");
-          data = data[fullProductName];
-          StripeCheckout.open({
-            key:         window.stripeKey,
-            address:     false,
-            amount:      data.amount,
-            name:        data.display_name,
-            email:       email,
-            panelLabel:  'Buy',
-            token:       function(response) {
-              clearScreen(function() {
-                startLoading();
-                xhrAuthRequest("POST", "purchase", function(ok, response) {
-                  doneLoading();
-                  if (ok) {
-                    cacheKnownPurchases(response);
-                    return purchaseCallback();
-                  } else if (/^card error: /.test(response.error)) {
-                    var cardError = response.error.substring("card error: ".length);
-                    asyncAlert(cardError);
-                    clearScreen(loadAndRestoreGame);
-                  } else if ("purchase already in flight" == response.error) {
-                    asyncAlert("Sorry, there was an error handling your purchase. Please wait five minutes and try again, or contact support@choiceofgames.com for assistance.");
-                    clearScreen(loadAndRestoreGame);
-                  } else {
-                    asyncAlert("Sorry, there was an error processing your card. (Your "+
-                      "network connection may be down.) Please refresh the page and try again, or contact "+
-                      "support@choiceofgames.com for assistance.");
-                    clearScreen(loadAndRestoreGame);
-                  }
-                }, "stripeToken", response.id, "product", fullProductName, "key", window.stripeKey);
-              });
-            }
-          });
-        }, "products", fullProductName);
-      }
-      if (registered) return fetchEmail(stripe);
-      clearScreen(function() {
-        var target = document.getElementById('text');
-        target.innerHTML="<p>Please sign in to Choiceofgames.com to purchase.</p>";
-        loginForm(document.getElementById('text'), /*optional*/1, /*err*/null, function(registered){
-          if (registered) {
-            checkPurchase(product, function(ok, response) {
-              if (ok && response[product]) {
-                purchaseCallback();
-              } else {
-                clearScreen(loadAndRestoreGame);
-                return fetchEmail(stripe);
-              }
+    var fullProductName = window.storeName + "." + product;
+    function stripe() {
+      if (window.productData && window.productData[product]) {
+        var data = productData[product];
+        return StripeCheckout.open({
+          key:         window.stripeKey,
+          address:     false,
+          amount:      data.amount,
+          name:        data.display_name,
+          email:       window.recordedEmail,
+          panelLabel:  'Buy',
+          token:       function(response) {
+            clearScreen(function() {
+              startLoading();
+              xhrAuthRequest("POST", "purchase", function(ok, response) {
+                doneLoading();
+                if (ok) {
+                  cacheKnownPurchases(response);
+                  return purchaseCallback();
+                } else if (/^card error: /.test(response.error)) {
+                  var cardError = response.error.substring("card error: ".length);
+                  asyncAlert(cardError);
+                  clearScreen(loadAndRestoreGame);
+                } else if ("purchase already in flight" == response.error) {
+                  asyncAlert("Sorry, there was an error handling your purchase. Please wait five minutes and try again, or contact support@choiceofgames.com for assistance.");
+                  clearScreen(loadAndRestoreGame);
+                } else {
+                  asyncAlert("Sorry, there was an error processing your card. (Your "+
+                    "network connection may be down.) Please refresh the page and try again, or contact "+
+                    "support@choiceofgames.com for assistance.");
+                  clearScreen(loadAndRestoreGame);
+                }
+              }, "stripeToken", response.id, "product", fullProductName, "key", window.stripeKey);
             });
-          } else {
-            clearScreen(loadAndRestoreGame);
           }
         });
+      } else {
+        return asyncAlert("Sorry, we weren't able to initiate payment. (Your "+
+          "network connection may be down.) Please refresh the page and try again, or contact "+
+          "support@choiceofgames.com for assistance.");
+      }
+    }
+    if (window.registered && window.recordedEmail) {
+      stripe();
+    }
+    clearScreen(function() {
+      var target = document.getElementById('text');
+      target.innerHTML="<p>Please sign in to Choiceofgames.com to purchase.</p>";
+      loginForm(document.getElementById('text'), /*optional*/1, /*err*/null, function(registered){
+        if (registered) {
+          if (window.knownPurchases && window.knownPurchases[product]) {
+            purchaseCallback();
+          } else {
+            clearScreen(loadAndRestoreGame);
+            return stripe();
+          }
+        } else {
+          clearScreen(loadAndRestoreGame);
+        }
       });
     });
   } else {
@@ -3730,6 +4089,10 @@ function registerNativeAchievement(name) {
     window.external.Achieve(name);
   } else if (window.isCef) {
     cefQuerySimple("Achieve " + name);
+  } else if (window.isGreenworks) {
+    require('greenworks').activateAchievement(name, function() {
+      console.log("registered achievement " + name);
+    })
   }
 }
 
@@ -3783,6 +4146,31 @@ function checkAchievements(callback) {
         alreadyLoadingAchievements = !!window.checkAchievementCallback;
         window.checkAchievementCallback = mergeNativeAchievements;
         if (!alreadyLoadingAchievements) callIos("checkachievements");
+      } else if (window.isGreenworks) {
+        if (!window.greenworksAchivementCallbackCount) {
+          var greenworks = require('greenworks');
+          var nativeAchievementNames = greenworks.getAchievementNames();
+          window.greenworksAchivementCallbackCount = nativeAchievementNames.length;
+          if (!window.greenworksAchivementCallbackCount) {
+            return callback();
+          }
+          var nativeAchievements = [];
+          for (var i = 0; i < nativeAchievementNames.length; i++) {
+            (function(i) {
+              greenworks.getAchievement(nativeAchievementNames[i], function(bAchieved) {
+                greenworksAchivementCallbackCount--;
+                if (bAchieved) {
+                  nativeAchievements.push(nativeAchievementNames[i]);
+                }
+                if (!greenworksAchivementCallbackCount) {
+                  mergeNativeAchievements(nativeAchievements);
+                }
+              }, function(err) {
+                greenworksAchivementCallbackCount--;
+              });
+            })(i);
+          }
+        }
       } else if (window.isMacApp && window.macAchievements) {
         alreadyLoadingAchievements = !!window.checkAchievementCallback;
         window.checkAchievementCallback = mergeNativeAchievements;
@@ -3868,7 +4256,7 @@ function showTicker(target, endTimeInSeconds, finishedCallback) {
   }
 
   function cleanUpTicker() {
-    window.tickerRunning = false;
+    window.blockRestart = false;
     if (window.isAndroidApp) {
       notificationBridge.cancelNotification();
     } else if (window.isIosApp) {
@@ -3887,16 +4275,19 @@ function showTicker(target, endTimeInSeconds, finishedCallback) {
       if (minutesRemaining < 60) {
         remainderSeconds = secondsRemaining - minutesRemaining * 60;
         return ""+minutesRemaining+"m " + formatSecondsRemaining(remainderSeconds);
-      } else {
+      } else if (minutesRemaining < 6000) {
         var hoursRemaining = Math.floor(secondsRemaining / 3600);
         remainderSeconds = secondsRemaining - hoursRemaining * 3600;
         return ""+hoursRemaining+"h " + formatSecondsRemaining(remainderSeconds, true);
+      } else {
+        var daysRemaining = Math.floor(secondsRemaining / 86400);
+        remainderSeconds = secondsRemaining - daysRemaining * 86400;
+        return ""+daysRemaining+" days " + formatSecondsRemaining(remainderSeconds, true);
       }
     }
   }
 
   function tick() {
-    window.tickerRunning = true;
     var tickerElement = document.getElementById("delayTicker");
     var tickerStillVisible = tickerElement && tickerElement.parentNode && tickerElement.parentNode.parentNode;
     if (!tickerStillVisible) {
@@ -4026,7 +4417,7 @@ function printInput(target, inputType, callback, minimum, maximum, step) {
 
 }
 
-function promptEmailAddress(target, defaultEmail, callback) {
+function promptEmailAddress(target, defaultEmail, allowContinue, callback) {
   if (!target) target = document.getElementById('text');
   var form = document.createElement("form");
   var self = this;
@@ -4050,9 +4441,11 @@ function promptEmailAddress(target, defaultEmail, callback) {
   println("", form);
   printButton("Next", form, true);
 
-  printButton("No, Thanks", target, false, function() {
-    callback(true);
-  });
+  if (allowContinue) {
+    printButton("No, Thanks", target, false, function() {
+      callback(true);
+    });
+  }
 
   form.onsubmit = function(e) {
     preventDefault(e);
@@ -4293,7 +4686,10 @@ function loginForm(target, optional, errorMessage, callback) {
                     loginDiv(ok, email);
                     recordLogin(ok, email);
                     cacheKnownPurchases(response.purchases);
-                    safeCall(null, function() {callback("ok");});
+                    // we need another click event so we can launch Stripe in a pop-up
+                    asyncAlert("You have registered successfully.", function() {
+                      safeCall(null, function() {callback("ok");});
+                    })
                   } else if ("incorrect password" == response.error) {
                     target.innerHTML = "";
                     loginForm(target, optional, 'Sorry, the email address "'+email+'" is already in use. Please type your password below, or use a different email address.', callback);
@@ -4323,7 +4719,10 @@ function loginForm(target, optional, errorMessage, callback) {
                   loginDiv(ok, email);
                   recordLogin(ok, email);
                   cacheKnownPurchases(response.purchases);
-                  safeCall(null, function() {callback("ok");});
+                  // we need another click event so we can launch Stripe in a pop-up
+                  asyncAlert("You have registered successfully.", function() {
+                    safeCall(null, function() {callback("ok");});
+                  })
                 } else if ("unknown email" == response.error) {
                   showMessage('Sorry, we can\'t find a record for the email address "'+email+'". Please try a different email address, or create a new account.');
                 } else if ("incorrect password" == response.error) {
@@ -4406,7 +4805,7 @@ function isRegistered(callback) {
 }
 
 function isRegisterAllowed() {
-  return window.isWeb || window.isIosApp;
+  return window.isWeb || window.isIosApp || window.isAndroidApp;
 }
 
 function preventDefault(event) {
@@ -4607,6 +5006,9 @@ window.onerror=function(msg, file, line, stack) {
         body += "\nLoad time: " + window.loadTime;
         if (window.Persist) body += "\nPersist: " + window.Persist.type;
         body += "\n\n" + statMsg + "\n\nversion=" + window.version;
+        if (window.currentVersion) {
+          body += "\ncurrentVersion=" + window.currentVersion;
+        }
         var supportEmailHref = "mailto:support-external@choiceofgames.com";
         try {
           supportEmailHref="mailto:"+getSupportEmail();
@@ -4622,11 +5024,29 @@ window.onload=function() {
     window.main = document.getElementById("main");
     var head = document.getElementsByTagName("head")[0];
     window.nav.setStartingStatsClone(window.stats);
+    if (initStore()) {
+      store.get("preferredZoom", function(ok, preferredZoom) {
+        if (ok && !isNaN(parseFloat(preferredZoom))) {
+          setZoomFactor(parseFloat(preferredZoom));
+        }
+      });
+      store.get("preferredBackground", function(ok, preferredBackground) {
+        if (!/^(sepia|black|white)$/.test(preferredBackground)) {
+          preferredBackground = "sepia";
+        }
+        if (preferredBackground === "black") {
+          document.body.classList.add("nightmode");
+        } else if (preferredBackground === "white") {
+          document.body.classList.add("whitemode");
+        }
+      });
+    }
     if (window.achievements && window.achievements.length) {
       nav.loadAchievements(window.achievements);
       checkAchievements(function() {});
       setButtonTitles();
     }
+    nav.loadProducts(window.knownProducts, window.purchases);
     stats.sceneName = window.nav.getStartupScene();
     var map = parseQueryString(window.location.search);
     if (!map) {
@@ -4649,12 +5069,20 @@ window.onload=function() {
       } else if (map.forcedScene) {
         safeCall(null, function() {loadAndRestoreGame(window.slot, window.forcedScene);});
       } else if (map.persistence) {
-        window.storeName = map.persistence;
+        var persistenceParts = map.persistence.split("|");
+        if (persistenceParts.length == 2) {
+          window.storeName = persistenceParts[0];
+          window.remoteStoreName = persistenceParts[1];
+        } else {
+          window.storeName = map.persistence;
+        }
         var startupScene = new Scene("startup", window.stats, window.nav, {secondaryMode:"startup", saveSlot:"startup"});
         startupScene.startupCallback = function() {
           safeCall(null, loadAndRestoreGame);
         }
         startupScene.execute();
+      } else if (map.textOptionsMenu) {
+        textOptionsMenu();
       } else {
         safeCall(null, loadAndRestoreGame);
       }
@@ -4682,7 +5110,7 @@ window.onload=function() {
             };
         }
     }
-    if (window.isCef) {
+    if (window.isCef || window.isNode || window.isMacApp) {
       var buttons = document.getElementById("buttons");
       buttons.appendChild(document.createTextNode(" "));
       var menuButton = document.createElement("button");
@@ -4690,6 +5118,15 @@ window.onload=function() {
       setClass(menuButton, "spacedLink");
       menuButton.onclick = showMenu;
       menuButton.innerHTML = "Menu";
+      buttons.appendChild(menuButton);
+    } else if (window.isWeb) {
+      var buttons = document.getElementById("buttons");
+      buttons.appendChild(document.createTextNode(" "));
+      var menuButton = document.createElement("button");
+      menuButton.id = "menuButton";
+      setClass(menuButton, "spacedLink");
+      menuButton.onclick = textOptionsMenu;
+      menuButton.innerHTML = "Settings";
       buttons.appendChild(menuButton);
     }
     if (window.isWinOldApp) {
@@ -4704,7 +5141,7 @@ window.onload=function() {
       ' scrolling="no" frameborder="0" style="border:none; overflow:hidden; width:90px; height:20px;" allowTransparency="true"></iframe>'+
       '<iframe allowtransparency="true" frameborder="0" scrolling="no" '+
       'src="//platform.twitter.com/widgets/follow_button.html?screen_name=choiceofgames&amp;show_screen_name=false"'+
-      ' style="width:150px; height:20px;"></iframe>';
+      ' style="width:160px; height:20px;"></iframe>';
     }
     var supportEmailLink = document.getElementById("supportEmail");
     if (window.storeName && supportEmailLink) {
@@ -4720,6 +5157,36 @@ window.onload=function() {
       }
       if (productList) checkPurchase(productList, function() {});
     }
+    if (window.isWeb) {
+      (function() {
+        if (window.releaseDate && new Date() < window.releaseDate) {
+          var appLinks = document.getElementById('mobileLinks');
+          if (appLinks) appLinks.style.display = 'none';
+        }
+        var productMap = {};
+        if (typeof purchases === "object") {
+          for (var scene in purchases) {
+            productMap[purchases[scene]] = 1;
+          }
+        }
+        if (!window.knownProducts) window.knownProducts = [];
+        for (var product in productMap) {
+          window.knownProducts.push(product);
+        }
+
+        var fullProducts = [];
+        for (var i = 0; i < window.knownProducts.length; i++) {
+          fullProducts[i] = window.storeName + "." + window.knownProducts[i];
+        }
+        xhrAuthRequest("GET", "product-data", function(ok, data) {
+          if (!window.productData) window.productData = {};
+          for (var i = 0; i < window.knownProducts.length; i++) {
+            window.productData[window.knownProducts[i]] = data[window.storeName + "." + window.knownProducts[i]];
+          }
+        }, "products", fullProducts.join(","));
+      })();
+    }
+
 };
 
 if ( document.addEventListener ) {
@@ -4734,7 +5201,7 @@ try {
 } catch (e) {}
 
 if (window.isWeb) {
-  document.write("<style>.webOnly { display: block !important; }</style>\n");
+  document.getElementById("dynamic").innerHTML = ".webOnly { display: block; }";
   var checkoutScript = document.createElement("script");
   checkoutScript.async = 1;
   checkoutScript.src="https://checkout.stripe.com/v2/checkout.js";
@@ -4756,7 +5223,7 @@ if (window.isWeb) {
     window.fbAsyncInit = function() {
       FB.init({
         appId      : facebookAppId,
-        cookie     : true,  // enable cookies to allow the server to access
+        cookie     : true,  // enable cookies to allow the server to access 
                             // the session
         xfbml      : true,  // parse social plugins on this page
         version    : 'v2.0' // use version 2.0
@@ -4777,19 +5244,18 @@ if (window.isWeb) {
     po.src = 'https://apis.google.com/js/client:plusone.js';
     var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
   })();
-
-}
-if (!window.isWeb && window.isIosApp) {
-  document.write("<style>"+
+  
+} else if (window.isIosApp) {
+  document.getElementById("dynamic").innerHTML =
   "#header { display: none; }"+
+  ""+
+  "body { transition-duration: 0; }"+
   ""+
   "#emailUs { display: none; }"+
   ""+
-  "#main { padding-top: 1em; }"+
-  "</style>"+
+  "#main { padding-top: 1em; }";
   // Use UIWebView width, not screen width, on iPad
-  "<meta name = 'viewport' content = 'width = "+window.innerWidth+"'>"
-  );
+  document.querySelector("meta[name=viewport]").setAttribute("content", "width="+window.innerWidth);
   window.addEventListener("resize", function() {
       document.querySelector("meta[name=viewport]").setAttribute("content", "width="+window.innerWidth);
       // this dummy element seems to be required to get the viewport to stick
@@ -4799,26 +5265,35 @@ if (!window.isWeb && window.isIosApp) {
       window.setTimeout(function() {document.body.removeChild(dummy);}, 10);
     }, false);
   callIos("checkdiscounts");
+  // in a timeout because iOS may try to add to the head before mygame.js has run
+  (function(){
+    var requester = function() {
+      if (window.stats) {
+        callIos("requestscenes");
+      } else {
+        safeTimeout(requester, 1);
+      }
+    }
+    safeTimeout(requester, 0);
+  })();
 } else if (window.isAndroidApp) {
-  document.write("<style>"+
+  document.getElementById("dynamic").innerHTML =
   "#header { display: none; }"+
   ""+
   "#emailUs { display: none; }"+
   ""+
-  "#main { padding-top: 1em; }"+
-  "</style>");
-}
-if (window.isWebOS) document.write("<style>body {font-family: Prelude; font-size: 14pt}\n#header {font-size: 13pt}</style>");
-if (window.isMacApp || window.isWinOldApp || window.isCef || window.isAndroidApp) {
-  document.write("<style>"+
+  "#main { padding-top: 1em; }";
+} else if (window.isMacApp || window.isWinOldApp || window.isCef || window.isNode) {
+  document.getElementById("dynamic").innerHTML =
     "#headerLinks { display: none; }"+
     ""+
-    "#emailUs { display: none; }"+
-    ""+
-    "</style>");
+    "#emailUs { display: none; }";
 }
-if (window.isWeb && !window.Touch) {
-  document.write("<style>label:hover {background-color: #E4DED8;}</style>");
+// on touch devices, this hover state never goes away
+if (!('ontouchstart' in window)) {
+  document.getElementById("dynamic").innerHTML += ".choice label:hover {background-color: #E4DED8;}\n" +
+    "body.nightmode .choice label:hover {background-color: #555;}\n"+
+    "body.whitemode .choice label:hover {background-color: #ddd;}\n";
 }
 if (window.isChromeApp) {
   var base = document.createElement('base');
@@ -4899,6 +5374,52 @@ if (window.isCef) {
     });
   };
   pollPurchases();
+} else if (window.isGreenworks) {
+	(function() {
+		var greenworksApps = require('../package.json').products;
+		if (typeof greenworksApps === "undefined") throw new Error("package.json missing products");
+		var greenworksAppId = window.isTrial ? greenworksApps.steam_demo : greenworksApps.adfree;
+		if (greenworks.restartAppIfNecessary(greenworksAppId)) return require('electron').remote.app.quit();
+		if (!greenworks.initAPI()) {
+			var errorCode = greenworks.isSteamRunning() ? 77778 : 77777;
+			alert("There was an error connecting to Steam. Steam must be running" +
+				" to play this game. If you launched this game using Steam, try restarting Steam" +
+				" or rebooting your computer. If that doesn't work, try completely uninstalling" +
+				" Steam and downloading a fresh copy from steampowered.com.\n\nIf none of that works, please contact" +
+				" support@choiceofgames.com and we'll try to help. (Mention error code "+errorCode+".)")
+			require('electron').remote.app.quit();
+    }
+		if (window.isTrial && greenworks.isSubscribedApp(greenworksApps.adfree)) {
+			alert("This is the demo version of the game, " +
+				"but you now own the full version. The demo will now exit. Your progress has been saved." +
+				" Please launch the full version of the game using Steam.");
+			require('electron').remote.app.quit();
+		}
+		var pollPurchases = function(oldCount) {
+			var count = 0;
+			for (var product in greenworksApps) {
+				if (greenworks.isSubscribedApp(greenworksApps[product])) {
+					count++;
+				}
+			}
+			if (count != oldCount && typeof oldCount !== "undefined") clearScreen(loadAndRestoreGame);
+			safeTimeout(function() {pollPurchases(count)}, 100);
+		};
+		pollPurchases();
+
+    var appIds = [];
+    for (var product in greenworksApps) {
+      appIds.push(greenworksApps[product]);
+    }
+
+    xhrAuthRequest("GET", "steam-price", function(ok, data) {
+      if (!window.productData) window.productData = {};
+      for (var product in greenworksApps) {
+        window.productData[product] = data[greenworksApps[product]];
+      }
+      if (window.awaitSteamProductData) window.awaitSteamProductData();
+    }, "user_id", greenworks.getSteamId().steamId, "app_ids", appIds.join(","));
+	})();
 }
 
 function winStoreShareLinkHandler(e) {
@@ -4953,9 +5474,19 @@ function platformCode() {
   if (window.isWinOldApp) return "csharp";
   if (window.isChromeApp) return "chrome";
   if (window.isWebOS) return "palm";
+  if (window.isSteamApp) return "steam";
   if (window.isCef) return "cef";
+  if (window.isNode) return "dl";
   if (window.isWeb) return "web";
   return "unknown";
+}
+
+function reinjectNavigator() {
+  if (window.stats && window.stats.scene && window.stats.scene.nav) {
+    var scene = window.stats.scene;
+    scene.nav = window.nav;
+    nav.repairStats(scene.stats);
+  }
 }
 /*
  * Copyright 2010 by Dan Fabulich.
@@ -5082,8 +5613,7 @@ Scene.prototype.printLoop = function printLoop() {
             }
             this.prevLine = "text";
             this.screenEmpty = false;
-            this.printLine(trim(line));
-            printx(' ', this.target);
+            this.printLine(line);
         }
     }
     this.rollbackLineCoverage();
@@ -5102,14 +5632,16 @@ Scene.prototype.dedent = function dedent(newDent) {};
 
 Scene.prototype.printLine = function printLine(line, parent) {
     if (!line) return null;
-    line = this.replaceVariables(line);
+    line = this.replaceVariables(line.replace(/^ */, ""));
     if (!parent) parent = this.target;
-    return printx(line, parent);
+    printx(line, parent);
+    // insert extra space unless the line ends with hyphen or dash
+    if (!/[-\u2011-\u2014]$/.test(line)) printx(' ', parent);
 };
 
 Scene.prototype.replaceVariables = function (line) {
   line = String(line);
-  var replacer = /(\$(\!?\!?)\{)/;
+  var replacer = /([$@](\!?\!?)\{)/;
   var index = 0;
   var output = [];
   for (var result = replacer.exec(line); result; result = replacer.exec(line.substring(index))) {
@@ -5131,11 +5663,67 @@ Scene.prototype.replaceVariables = function (line) {
       }
     }
     if (closingCurly == -1) {
-      throw new Error(this.lineMsg() + "invalid ${} variable substitution at letter " + (index + result.index + 1));
+      throw new Error(this.lineMsg() + "invalid "+result[0]+"} variable substitution at letter " + (index + result.index + 1));
     }
-    var expr = line.substring(exprStart, closingCurly);
-    var stack = this.tokenizeExpr(expr);
-    var value = this.evaluateExpr(stack);
+    var body = line.substring(exprStart, closingCurly);
+    var stack, value;
+    if (result[0].charAt(0) === "$") {
+      stack = this.tokenizeExpr(body);
+      value = this.evaluateExpr(stack);
+    } else {
+      var expr;
+      var options;
+      if (/^\s*\(/.test(body)) {
+        var parens = 0;
+        var closingParen = -1;
+        for (var i = 1; i < body.length; i++) {
+          var c = body.charAt(i);
+          if (c === "(") {
+            parens++;
+          } else if (c === ")") {
+            if (parens) {
+              parens--;
+            } else {
+              closingParen = i;
+              break;
+            }
+          }
+        }
+        if (closingParen == -1) {
+          throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; missing closing parenthesis )");
+        }
+        if (body.charAt(closingParen+1) != " ") {
+          throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; there should be a space after the closing parenthesis )");
+        }
+        expr = body.substring(1, closingParen);
+        options = body.substring(closingParen+2).split("|");
+      } else {
+        if (!/^\S+ /.test(body)) {
+          throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; there should be a space after the first word");
+        }
+        var spaceIndex = body.indexOf(' ');
+        expr = body.substring(0, spaceIndex);
+        options = body.substring(spaceIndex+1).split("|");
+      }
+      if (options.length < 2) {
+        throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; there should be at least one pipe | to separate options");
+      }
+      stack = this.tokenizeExpr(expr);
+      value = this.evaluateExpr(stack);
+      if (typeof value === "boolean" || /^(true|false)$/i.test(value)) {
+        value = bool(value) ? 1 : 2;
+      }
+      value = num(value, this.lineNum+1);
+      if ((value | 0) !== value) {
+        throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; '"+expr+"' is equal to " + value + " which is not a whole integer number");
+      } else if (value < 1) {
+        throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; '"+expr+"' is equal to " + value + " which is not a positive number");
+      } else if (value > options.length) {
+        throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; '"+expr+"' is equal to " + value + " but there are only " + options.length + " options");
+      }
+      value = options[value-1];
+      value = this.replaceVariables(value);
+    }
     var capitalize = result[2];
     if (capitalize) value = String(value);
     if (capitalize == "!") {
@@ -5176,6 +5764,52 @@ Scene.prototype.loadSceneFast = function loadSceneFast(url) {
       result = allScenes[this.name];
       if (!result) throw new Error("Couldn't load scene '" + this.name + "'\nThe file doesn't exist.");
       return this.loadLinesFast(result.crc, result.lines, result.labels);
+    } else if (typeof isIosApp != "undefined") {
+      startLoading();
+      var self = this;
+      var startedWaiting = new Date().getTime();
+
+      function retryScenes(command) {
+        if (!command) command = "retryscenes";
+        clearScreen(function() {
+          startLoading();
+          if (command == "retryscenes") curl();
+          window.downloadState = null;
+          callIos(command);
+          startedWaiting = new Date().getTime();
+          awaitAllScenes();
+        });
+      }
+
+      function awaitAllScenes() {
+        if (typeof allScenes != "undefined") {
+          result = allScenes[self.name];
+          if (!result) throw new Error("Couldn't load scene '" + self.name + "'\nThe file doesn't exist.");
+          self.loadLinesFast(result.crc, result.lines, result.labels);
+        } else if (window.downloadState == "failed" || (new Date().getTime() - startedWaiting) > 5000) {
+          doneLoading();
+          if (window.downloadRequired) {
+            println("We weren't able to download the latest version of the game.");
+            println("");
+            printButton("Try Again", main, false, retryScenes);
+          } else {
+            println("We weren't able to download the latest version of the game. Please try downloading again. The latest version may contain important fixes.");
+            println("");
+            var retry = {name: "Try downloading again."};
+            var ignore = {name: "Continue playing without the latest version."}
+            printOptions([""], [retry, ignore], function(option) {
+              if (option == retry) {
+                retryScenes();
+              } else {
+                retryScenes("requestscenesforce");
+              }
+            });
+          }
+        } else {
+          setTimeout(awaitAllScenes, 0);
+        }
+      }
+      return awaitAllScenes();
     }
     startLoading();
     if (!url) {
@@ -5307,7 +5941,15 @@ Scene.prototype.loadScene = function loadScene(url) {
             " <p><button onclick='window.location.reload();'>Refresh Now</button></p>";
             return;
         } else if (xhr.responseText === "") {
-          throw new Error("Couldn't load " + url + "\nThe file is probably missing or empty.");
+          if (window.location.protocol == "file:" && !window.isMobile && /Chrome/.test(navigator.userAgent)) {
+            window.onerror("We're sorry, Google Chrome has blocked ChoiceScript from functioning.  (\"file:\" URLs cannot "+
+            "load files in Chrome.)  ChoiceScript works just fine in Chrome, but only on a published website like "+
+            "choiceofgames.com.  For the time being, please try another browser like Mozilla Firefox.");
+            return;
+          } else {
+            window.onerror("Couldn't load " + url + "\nThe file is probably missing or empty.");
+            return;
+          }
         }
         var result = xhr.responseText;
         scene = result;
@@ -5401,6 +6043,10 @@ Scene.prototype.parseLabels = function parseLabels() {
     for (this.lineNum = 0; this.lineNum < lineLength; this.lineNum++) {
         this.rollbackLineCoverage();
         var line = this.lines[this.lineNum];
+        // strip byte order mark
+        if (this.lineNum == 0 && line.charCodeAt(0) == 65279) lines[0] = line.substring(1);
+        var invalidCharacter = line.match(/^(.*)\ufffd/);
+        if (invalidCharacter) throw new Error(this.lineMsg() + "invalid character. (ChoiceScript text should be saved in the UTF-8 encoding.) " + invalidCharacter[0]);
         var result = /^(\s*)\*(\w+)(.*)/.exec(line);
         if (!result) continue;
         var indentation = result[1];
@@ -5446,7 +6092,7 @@ Scene.prototype.runCommand = function runCommand(line) {
     if (Scene.validCommands[command]) {
         if ("comment" == command) return true;
         if (Scene.initialCommands[command]) {
-          if ("startup" != this.name || !this.initialCommands) {
+          if ("startup" != String(this.name).toLowerCase() || !this.initialCommands) {
             throw new Error(this.lineMsg() + "Invalid "+command+" instruction, only allowed at the top of startup.txt");
           }
         } else {
@@ -5810,6 +6456,11 @@ Scene.prototype.redirect_scene = function redirectScene(data) {
   });
 };
 
+Scene.prototype.product = function product(productId) {
+  if (!/^[a-z]+$/.test(productId)) throw new Error(this.lineMsg()+"Invalid product id: " +productId);
+  if (this.nav) this.nav.products[productId] = {};
+}
+
 Scene.prototype.restore_purchases = function scene_restorePurchases(data) {
   var self = this;
   var target = this.target;
@@ -5817,7 +6468,7 @@ Scene.prototype.restore_purchases = function scene_restorePurchases(data) {
   var button = printButton("Restore Purchases", target, false,
     function() {
       safeCall(self, function() {
-          restorePurchases(function() {
+          restorePurchases(null, function() {
             self["goto"](data);
             self.finished = false;
             self.resetPage();
@@ -5834,6 +6485,13 @@ Scene.prototype.check_purchase = function scene_checkPurchase(data) {
   this.finished = true;
   this.skipFooter = true;
   var self = this;
+  var productList = data.split(/ /);
+  for (var i = 0; i < productList.length; i++) {
+    var product = productList[i];
+    if (!this.nav.products[product] && product != "adfree") {
+      throw new Error(this.lineMsg() + "The product " + product + " wasn't declared in a *product command");
+    }
+  }
   checkPurchase(data, function(ok, result) {
     self.finished = false;
     self.skipFooter = false;
@@ -5861,6 +6519,9 @@ Scene.prototype.purchase = function purchase_button(data) {
   var product = result[1];
   var priceGuess = trim(result[2]);
   var label = trim(result[3]);
+  if (!this.nav.products[product] && product != "adfree") {
+    throw new Error(this.lineMsg() + "The product " + product + " wasn't declared in a *product command");
+  }
   if (typeof this.temps["choice_purchased_"+product] === "undefined") throw new Error(this.lineMsg() + "Didn't check_purchases on this page");
   this.finished = true;
   this.skipFooter = true;
@@ -5872,10 +6533,20 @@ Scene.prototype.purchase = function purchase_button(data) {
       self.resetPage();
     } else {
       if (price == "guess") price = priceGuess;
+      var prerelease = (typeof window !== "undefined" && window.releaseDate && window.isWeb && window.releaseDate > new Date());
+      var buttonText;
+      if (prerelease) {
+        buttonText = "Pre-Order It";
+      } else {
+        buttonText = "Buy It Now";
+      }
+      if (price != "hide") {
+        buttonText += " for " + price;
+      }
       var target = self.target;
       if (!target) target = document.getElementById('text');
       self.paragraph();
-      var button = printButton("Buy It Now for " + price, target, false,
+      var button = printButton(buttonText, target, false,
         function() {
           safeCall(self, function() {
               purchase(product, function() {
@@ -5891,27 +6562,19 @@ Scene.prototype.purchase = function purchase_button(data) {
       self.prevLine = "block";
       if (isRestorePurchasesSupported()) {
         self.prevLine = "text";
-        printLink(target, "#", "Restore Purchases",
+        printx("If you've already purchased, click here to ", target);
+        printLink(target, "#", "restore purchases",
           function() {
             safeCall(self, function() {
-                restorePurchases(function(error) {
-                  checkPurchase([product], function(ok, purchases) {
-                    if (ok && purchases[product]) {
-                      self["goto"](label);
-                      self.finished = false;
-                      self.resetPage();
-                    } else {
-                      if (error || !ok) {
-                        asyncAlert("Restore failed. Please try again.");
-                      } else {
-                        asyncAlert("Restore completed. This product is not yet purchased.");
-                      }
-                      if (ok) { // don't refresh if not OK, but should we refresh on error? assuming yes?
-                        // refresh, in case we're on web showing a full-screen login. Not necessary on mobile? But, meh.
-                        if (!self.secondaryMode) clearScreen(loadAndRestoreGame);
-                      }
-                    }
-                  });
+                restorePurchases(product, function(purchased) {
+                  if (purchased) {
+                    self["goto"](label);
+                    self.finished = false;
+                    self.resetPage();
+                  } else {
+                    // refresh, in case we're on web showing a full-screen login. Not necessary on mobile? But, meh.
+                    if (!self.secondaryMode) clearScreen(loadAndRestoreGame);
+                  }
                 });
             });
           }
@@ -5941,7 +6604,13 @@ Scene.prototype.purchase_discount = function purchase_discount(line) {
   if (!startsWithDollar.test(discountedPriceGuess)) {
     throw new Error(this.lineMsg() + "discounted price guess "+discountedPriceGuess+"doesn't start with dollar: " + line);
   }
-  var discountText = "[b]On sale until "+shortMonthStrings[expectedEndDate.getMonth()+1]+" "+expectedEndDate.getDate()+"! Buy now before the price increases![/b]"
+  var prerelease = (typeof window !== "undefined" && window.releaseDate && window.isWeb && window.releaseDate > new Date());
+  var discountText;
+  if (prerelease) {
+    discountText = "[b]Buy now before the price increases![/b]";
+  } else {
+    discountText = "[b]On sale until "+shortMonthStrings[expectedEndDate.getMonth()+1]+" "+expectedEndDate.getDate()+"! Buy now before the price increases![/b]"
+  }
   if (typeof printDiscount != "undefined") {
     printDiscount(product, expectedEndDate.getYear()+1900, expectedEndDate.getMonth()+1, expectedEndDate.getDate(), discountText);
   }
@@ -6029,23 +6698,38 @@ Scene.prototype.getVar = function getVar(variable) {
     if (variable == "choice_registered") return typeof window != "undefined" && !!window.registered;
     if (variable == "choice_is_web") return typeof window != "undefined" && !!window.isWeb;
     if (variable == "choice_is_steam") return typeof window != "undefined" && !!window.isSteamApp;
+    if (variable == "choice_is_ios_app") return typeof window != "undefined" && !!window.isIosApp;
     if (variable == "choice_is_advertising_supported") return typeof isAdvertisingSupported != "undefined" && !!isAdvertisingSupported();
     if (variable == "choice_is_trial") return !!(typeof isTrial != "undefined" && isTrial);
+    if (variable == "choice_release_date") {
+      if (typeof window != "undefined" && window.releaseDate) {
+        return simpleDateTimeFormat(window.releaseDate);
+      }
+      return "release day";
+    }
+    if (variable == "choice_prerelease") {
+      if (typeof window != "undefined" && window.releaseDate) {
+        return new Date() < window.releaseDate.getTime();
+      } else {
+        return false;
+      }
+    }
     if (variable == "choice_kindle") return false;
     if (variable == "choice_randomtest") return !!this.randomtest;
+    if (variable == "choice_quicktest") return false; // quicktest will explore "false" paths
     if (variable == "choice_restore_purchases_allowed") return isRestorePurchasesSupported();
     if (variable == "choice_save_allowed") return areSaveSlotsSupported();
     if (variable == "choice_time_stamp") return Math.floor(new Date()/1000);
     if ("undefined" === typeof this.temps[variable]) {
-      if ("undefined" === typeof this.stats[variable]) {
-          throw new Error(this.lineMsg() + "Non-existent variable '"+variable+"'");
-      }
-      value = this.stats[variable];
-      if (value === null || value === undefined) {
-          throw new Error(this.lineMsg() + "Variable '"+variable+"' exists but has no value");
-      }
-      if (this.debugMode) println("stats["+ variable + "]==" + value);
-      return value;
+        if ("undefined" === typeof this.stats[variable]) {
+            throw new Error(this.lineMsg() + "Non-existent variable '"+variable+"'");
+        }
+        value = this.stats[variable];
+        if (value === null || value === undefined) {
+            throw new Error(this.lineMsg() + "Variable '"+variable+"' exists but has no value");
+        }
+        if (this.debugMode) println("stats["+ variable + "]==" + value);
+        return value;
     }
     value = this.temps[variable];
     if (value === null || value === undefined) {
@@ -6400,18 +7084,35 @@ Scene.prototype.line_break = function line_break() {
 
 // *image
 // display named image //CJW edited to compensate for data uri images
-Scene.prototype.image = function image(data) {
+Scene.prototype.image = function image(data, invert) {
     data = data || "";
     data = this.replaceVariables(data);
     var args = data.split(" ");
-    if (args > 2) throw new Error(this.lineMsg()+"Too many words; expected filename and alignment: " + data);
-    var source = args[0];
-    var alignment = args[1];
+    var source, alignment;
+    var alt = null;
+    if (args.length > 2) {
+      var source = args[0];
+      var alignment = args[1];
+      var alt = trim(args[2]);
+    }
+    else if (args.length > 1) {
+      var source = args[0];
+      var alignment = args[1];
+    }
+    else {
+      var source = data;
+    }
     alignment = alignment || "center";
     if (!/(right|left|center|none)/.test(alignment)) throw new Error(this.lineMsg()+"Invalid alignment, expected right, left, center, or none: " + data);
-    printImage(source, alignment);
+    printImage(source, alignment, alt, invert);
     if (this.verifyImage) this.verifyImage(source);
+    if (alignment == "none") this.prevLine = "text";
+    this.screenEmpty = false;
 };
+
+Scene.prototype.text_image = function textImage(data) {
+  this.image(data, "invert");
+}
 
 // *sound
 // play named sound file
@@ -6419,6 +7120,14 @@ Scene.prototype.sound = function sound(source) {
     if (typeof playSound == "function") playSound(source);
     if (this.verifyImage) this.verifyImage(source);
 };
+
+Scene.prototype.youtube = function youtube(slug) {
+  if (typeof printYoutubeFrame !== "undefined") {
+    printYoutubeFrame(slug);
+    this.prevLine = "block";
+    this.screenEmpty = false;
+  }
+}
 
 // *link
 // Display URL with anchor text
@@ -6524,7 +7233,6 @@ Scene.prototype.print = function scene_print(expr) {
     this.prevLine = "text";
     this.screenEmpty = false;
     this.printLine(value);
-    printx(' ', this.target);
 };
 
 // *input_text var
@@ -6569,6 +7277,13 @@ Scene.prototype.input_number = function input_number(data) {
       throw new Error(this.lineMsg() + "Non-existent variable '"+variable+"'");
     }
 
+    var simpleConstants;
+    if (stack.length == 2 && stack[0].name == "NUMBER" && stack[1].name == "NUMBER") {
+      simpleConstants = true;
+    } else {
+      simpleConstants = false;
+    }
+
     if (!stack.length) throw new Error(this.lineMsg() + "Invalid input_number statement, expected three args: varname min max");
     var minimum = this.evaluateValueToken(stack.shift(), stack);
     if (isNaN(minimum*1)) throw new Error(this.lineMsg() + "Invalid minimum, not numeric: " + minimum);
@@ -6578,7 +7293,12 @@ Scene.prototype.input_number = function input_number(data) {
     if (stack.length) throw new Error(this.lineMsg() + "Invalid input_number statement, expected three args: varname min max");
     if (isNaN(maximum*1)) throw new Error(this.lineMsg() + "Invalid maximum, not numeric: " + maximum);
 
-    if (parseFloat(minimum) > parseFloat(maximum)) throw new Error(this.lineMsg() + "Minimum " + minimum+ " should not be greater than maximum " + maximum);
+    // in quicktest, min and max can get mixed up as the interpreter "cheats" on if statements
+    // so quicktest will ignore min/max errors unless they're simple constants e.g. *input_number x 6 4
+    var checkMinMax = !this.quicktest || simpleConstants;
+    if (checkMinMax && parseFloat(minimum) > parseFloat(maximum)) {
+      throw new Error(this.lineMsg() + "Minimum " + minimum+ " should not be greater than maximum " + maximum);
+    }
 
     function isInt(x) {
        var y=parseInt(x,10);
@@ -6607,7 +7327,7 @@ Scene.prototype.input_number = function input_number(data) {
           asyncAlert("Please use a number greater than or equal to " + minimum);
           return;
         }
-        if (numValue > maximum * 1) {
+        if (numValue > maximum * 1 && !this.quicktest) {
           asyncAlert("Please use a number less than or equal to " + maximum);
           return;
         }
@@ -6860,16 +7580,31 @@ Scene.prototype.restart = function restart() {
 
 };
 
-Scene.prototype.subscribe = function scene_subscribe(now) {
-  // "now" means we should immediately display the signup form
-  // otherwise, we should display a Subscribe button which displays the form
-  // On some platforms, "now" is impossible, so we ignore it.
-  now = ("now" == now);
+/* Subscribe options, in JSON format.
+"now" on mobile means we should immediately mailto: the subscribe address
+otherwise, we should display a Subscribe button which launches the mailto:
+On non-mailte: platforms, we ignore "now"
+
+"allowContinue" is the default; setting it to false blocks the "No, Thanks"
+button and the "Next" button after successfully subscribing
+Only Coming Soon pages use "allowContinue"
+
+"message" is the message we'll show to justify subscribing
+the default message is: "we'll notify you when our next game is ready!" */
+Scene.prototype.subscribe = function scene_subscribe(data) {
+  var options = {};
+  if (data) {
+    try {
+      options = JSON.parse(data);
+    } catch (e) {
+      throw new Error(this.lineMsg() + "Couldn't parse subscribe arguments: " + data);
+    }
+  }
   this.prevLine = "block";
   this.finished = true;
   this.skipFooter = true;
   var self = this;
-  subscribe(this.target, now, function(now) {
+  subscribe(this.target, options, function(now) {
     self.finished = false;
     // if "now" actually worked, then continue the scene
     // otherwise, reset the page before continuing
@@ -6914,7 +7649,7 @@ Scene.prototype.restore_game = function restore_game(data) {
         clearScreen(function() {
           fetchEmail(function(defaultEmail){
             self.printLine("Please type your email address to identify yourself.");
-            promptEmailAddress(this.target, defaultEmail, function(cancel, email) {
+            promptEmailAddress(this.target, defaultEmail, "allowContinue", function(cancel, email) {
               if (cancel) {
                 self.finished = false;
                 if (typeof cancelLabel !== "undefined") {
@@ -6945,7 +7680,7 @@ Scene.prototype.restore_game = function restore_game(data) {
         clearScreen(function() {
           fetchEmail(function(defaultEmail){
             self.printLine("Please type your email address to identify yourself.");
-            promptEmailAddress(this.target, defaultEmail, function(cancel, email) {
+            promptEmailAddress(this.target, defaultEmail, "allowContinue", function(cancel, email) {
               if (cancel) {
                 self.finished = false;
                 if (typeof cancelLabel !== "undefined") {
@@ -7597,10 +8332,10 @@ Scene.prototype.stat_chart = function stat_chart() {
     var statWidth, div, span, statValue;
     if (type == "text") {
       div = document.createElement("div");
-      setClass(div, "statLine");
+      setClass(div, "statText");
       span = document.createElement("span");
       if (trim(label) || trim(value)) {
-        printx("\u00a0\u00a0"+label + ": " + value, span);
+        printx(label + ": " + value, span);
       } else {
         // unofficial line_break
         printx(" ", span);
@@ -7787,6 +8522,30 @@ Scene.prototype.parseStatChart = function parseStatChart() {
     return rows;
 };
 
+// *timer Dec 25, 2016 9:30:00 PDT
+Scene.prototype.timer = function(dateString) {
+  var end;
+  if (dateString == "release") {
+    if (typeof window === "undefined" || !window.releaseDate) return;
+    end = window.releaseDate/1000;
+  } else {
+    end = Date.parse(dateString)/1000;
+  }
+  var now = new Date()/1000;
+  if (now < end) {
+    var target = this.target;
+    if (!target) {
+      target = document.createElement("p");
+      document.getElementById('text').appendChild(target);
+    }
+    var self = this;
+    showTicker(target, end, function() {
+      clearScreen(loadAndRestoreGame());
+    });
+  }
+}
+
+// *delay_break 1200
 Scene.prototype.delay_break = function(durationInSeconds) {
   if (isNaN(durationInSeconds * 1)) throw new Error(this.lineMsg() + "invalid duration");
   this.finished = true;
@@ -7798,6 +8557,7 @@ Scene.prototype.delay_break = function(durationInSeconds) {
   }
   var self = this;
   delayBreakStart(function(delayStart) {
+    window.blockRestart = true;
     var endTimeInSeconds = durationInSeconds * 1 + delayStart * 1;
     showTicker(target, endTimeInSeconds, function() {
       printButton("Next", target, false, function() {
@@ -7810,6 +8570,7 @@ Scene.prototype.delay_break = function(durationInSeconds) {
   });
 };
 
+// *delay_ending 1200 $2.99 $0.99
 Scene.prototype.delay_ending = function(data) {
   var args = data.split(/ /);
   var durationInSeconds = args[0];
@@ -7865,7 +8626,7 @@ Scene.prototype.delay_ending = function(data) {
               });
             });
           } else if (option == restorePurchasesOption) {
-            restorePurchases(function() {
+            restorePurchases("adfree", function() {
               clearScreen(loadAndRestoreGame);
             });
           } else {
@@ -7876,6 +8637,7 @@ Scene.prototype.delay_ending = function(data) {
         var target = document.getElementById("0").parentElement;
 
         delayBreakStart(function(delayStart) {
+          window.blockRestart = true;
           var endTimeInSeconds = durationInSeconds * 1 + delayStart * 1;
           showTicker(target, endTimeInSeconds, function() {
             clearScreen(function() {
@@ -8024,6 +8786,8 @@ Scene.prototype.tokenizeExpr = function tokenizeExpr(str) {
                 pos += token.length;
                 if ("WHITESPACE" == tokenType.name) {
                     break;
+                } else if ("CURLY_QUOTE" == tokenType.name) {
+                  throw new Error(this.lineMsg()+"Invalid use of curly smart quote: " + token + "\nUse straight quotes \" instead")
                 }
                 stack.push({name:tokenType.name, value:token, pos:pos});
                 break;
@@ -8068,6 +8832,11 @@ Scene.prototype.evaluateExpr = function evaluateExpr(stack, parenthetical) {
     // Since this isn't a singleton, it must be an operator
     operator = Scene.operators[token.value];
     if (!operator) throw new Error(this.lineMsg() + "Invalid expression at char "+token.pos+", expected OPERATOR, was: " + token.name + " [" + token.value + "]");
+
+    if (token.value === '%') {
+      this.warning("this is a bare % sign, which should be replaced with %+, %-, or modulo if you're really advanced.");
+      this.warning("For more details on modulo, see: https://forum.choiceofgames.com/t/21176");
+    }
 
     value2 = this.evaluateValueToken(getToken(), stack);
 
@@ -8438,7 +9207,7 @@ Scene.prototype.parseSceneList = function parseSceneList() {
       if (purchaseMatch) {
         line = purchaseMatch[2];
       }
-      if (!scenes.length && "startup" != line) scenes.push("startup");
+      if (!scenes.length && "startup" != String(line).toLowerCase()) scenes.push("startup");
       scenes.push(line);
   }
   return scenes;
@@ -8500,6 +9269,7 @@ Scene.prototype.achievement = function scene_achievement(data) {
   var title = parsed[4];
   if (/(\$\{)/.test(title)) throw new Error(this.lineMsg()+"Invalid *achievement. ${} not permitted in achievement title: " + title);
   if (/(\[)/.test(title)) throw new Error(this.lineMsg()+"Invalid *achievement. [] not permitted in achievement title: " + title);
+  if (title.length > 50) throw new Error(this.lineMsg()+"Invalid *achievement. Title must be 50 characters or fewer: " + title);
 
   // Get the description from the next indented line
   var line = this.lines[++this.lineNum];
@@ -8510,6 +9280,7 @@ Scene.prototype.achievement = function scene_achievement(data) {
   var preEarnedDescription = trim(line);
   if (/(\$\{)/.test(preEarnedDescription)) throw new Error(this.lineMsg()+"Invalid *achievement. ${} not permitted in achievement description: " + preEarnedDescription);
   if (/(\[)/.test(preEarnedDescription)) throw new Error(this.lineMsg()+"Invalid *achievement. [] not permitted in achievement description: " + preEarnedDescription);
+  if (preEarnedDescription.length > 200) throw new Error(this.lineMsg()+"Invalid *achievement. Pre-earned description must be 200 characters or fewer: " + preEarnedDescription);
 
   if (!visible) {
     if (preEarnedDescription.toLowerCase() != "hidden") throw new Error(this.lineMsg()+"Invalid *achievement. Hidden achievements must set their pre-earned description to 'hidden'.");
@@ -8526,6 +9297,7 @@ Scene.prototype.achievement = function scene_achievement(data) {
     postEarnedDescription = trim(line);
     if (/(\$\{)/.test(postEarnedDescription)) throw new Error(this.lineMsg()+"Invalid *achievement. ${} not permitted in achievement description: " + postEarnedDescription);
     if (/(\[)/.test(postEarnedDescription)) throw new Error(this.lineMsg()+"Invalid *achievement. [] not permitted in achievement description: " + postEarnedDescription);
+    if (postEarnedDescription.length > 200) throw new Error(this.lineMsg()+"Invalid *achievement. Post-earned description must be 200 characters or fewer: " + postEarnedDescription);
   } else {
     // No indent means the next line is not a post-earned description
     this.rollbackLineCoverage();
@@ -8573,6 +9345,35 @@ Scene.prototype.bug = function scene_bug(message) {
     message = "Bug";
   }
   throw new Error(this.lineMsg() + message);
+};
+
+Scene.prototype.warning = function scene_warning(message) {
+  // quicktest implements this
+}
+
+Scene.prototype.feedback = function scene_feedback() {
+  if (typeof window == "undefined" || this.randomtest) return;
+  this.paragraph();
+  this.printLine("On a scale from 1 to 10, how likely are you to recommend this game to a friend?[n/][n/]");
+  this.paragraph();
+  var options = [{name:"10 (Most likely)"}];
+  for (var i = 9; i > 1; i--) {
+    options.push({name:i});
+  }
+  options.push({name:"1 (Least likely)"});
+  options.push({name:"No response."});
+  var self = this;
+  this.renderOptions([""], options, function(option) {
+    var value = "null";
+    var numberMatch = /^(\d+)/.exec(option.name);
+    if (numberMatch) value = numberMatch[1]*1;
+    if (window.storeName) xhrAuthRequest("POST", "feedback", function(ok, response) {
+      if (window.console) console.log("ok", ok, response);
+    }, "game", window.storeName, "platform", platformCode(), "rating", value);
+    self.finished = false;
+    self.resetPage();
+  });
+  this.finished = true;
 };
 
 Scene.prototype.parseTrackEvent = function(data) {
@@ -8641,8 +9442,9 @@ Scene.tokens = [
             throw new Error("line "+line+": Invalid string, open quote with no close quote: " + str);
         }
     },
+    {name:"CURLY_QUOTE", test:function(str){ return Scene.regexpMatch(str,/^[\u201c|\u201d]/); } },
     {name:"WHITESPACE", test:function(str){ return Scene.regexpMatch(str,/^\s+/); } },
-    {name:"BOOLEAN_OPERATOR", test:function(str){ return Scene.regexpMatch(str,/^(and|or)\b/); } },
+    {name:"NAMED_OPERATOR", test:function(str){ return Scene.regexpMatch(str,/^(and|or|modulo)\b/); } },
     {name:"VAR", test:function(str){ return Scene.regexpMatch(str,/^\w*/); } },
     {name:"FAIRMATH", test:function(str){ return Scene.regexpMatch(str,/^%[\+\-]/); } },
     {name:"OPERATOR", test:function(str){ return Scene.regexpMatch(str,/^[\+\-\*\/\&\%\^\#]/); } },
@@ -8707,10 +9509,11 @@ Scene.operators = {
     },
     "or": function or(v1, v2, line) {
         return bool(v1,line) || bool(v2,line);
-    }
+    },
+    "modulo": function modulo(v1,v2,line) { return num(v1,line) % num(v2,line); },
 };
 
-Scene.initialCommands = {"create":1,"scene_list":1,"title":1,"author":1,"comment":1,"achievement":1};
+Scene.initialCommands = {"create":1,"scene_list":1,"title":1,"author":1,"comment":1,"achievement":1,"product":1};
 
 Scene.validCommands = {"comment":1, "goto":1, "gotoref":1, "label":1, "looplimit":1, "finish":1, "abort":1,
     "choice":1, "create":1, "temp":1, "delete":1, "set":1, "setref":1, "print":1, "if":1, "rand":1,
@@ -8718,10 +9521,12 @@ Scene.validCommands = {"comment":1, "goto":1, "gotoref":1, "label":1, "looplimit
     "goto_scene":1, "fake_choice":1, "input_text":1, "ending":1, "share_this_game":1, "stat_chart":1,
     "subscribe":1, "show_password":1, "gosub":1, "return":1, "hide_reuse":1, "disable_reuse":1, "allow_reuse":1,
     "check_purchase":1,"restore_purchases":1,"purchase":1,"restore_game":1,"advertisement":1,
+    "feedback":1,
     "save_game":1,"delay_break":1,"image":1,"link":1,"input_number":1,"goto_random_scene":1,
     "restart":1,"more_games":1,"delay_ending":1,"end_trial":1,"login":1,"achieve":1,"scene_list":1,"title":1,
     "bug":1,"link_button":1,"check_registration":1,"sound":1,"author":1,"gosub_scene":1,"achievement":1,
-    "check_achievements":1,"redirect_scene":1,"print_discount":1,"purchase_discount":1,"track_event":1
+    "check_achievements":1,"redirect_scene":1,"print_discount":1,"purchase_discount":1,"track_event":1,
+    "timer":1,"youtube":1,"product":1,"text_image":1
     };
 /*
  * Copyright 2010 by Dan Fabulich.
@@ -8798,9 +9603,12 @@ SceneNavigator.prototype.bugLog = [];
 SceneNavigator.prototype.achievements = {};
 SceneNavigator.prototype.achievementList = [];
 SceneNavigator.prototype.achieved = {};
+SceneNavigator.prototype.products = {};
 
 SceneNavigator.prototype.loadAchievements = function(achievementArray) {
   if (!achievementArray) return;
+  this.achievements = {};
+  this.achievementList = [];
   for (var i = 0; i < achievementArray.length; i++) {
     var achievement = achievementArray[i];
     var achievementName = achievement[0];
@@ -8818,10 +9626,365 @@ SceneNavigator.prototype.loadAchievements = function(achievementArray) {
     };
     this.achievementList.push(achievementName);
   }
-};nav = new SceneNavigator(["startup"]);
+};
+SceneNavigator.prototype.loadProducts = function(productArray, purchaseMap) {
+  if (!productArray && !purchaseMap) return;
+  this.products = {};
+  for (var i = 0; i < productArray; i++) {
+    this.products[productArray[i]] = {};
+  }
+  for (var scene in purchaseMap) {
+    var product = purchaseMap[scene];
+    this.products[product] = {};
+  }
+}
+nav = new SceneNavigator(["startup"]);
 stats = {};
 
-</script><style>.alertify-show,
+</script><style>body {
+  max-width: 680px;
+  _width:expression(this.scrollWidth > 680 ? "680px" : "auto");
+  font-size: 100%;  /* reset for CWS */
+  font: -apple-system-body; /* we'll override the font, but keep the size from iOS dynamic text sizing */
+  font-family: Georgia,"Times New Roman",serif;
+  background-color: #F7F4F1;
+  color: rgba(0, 0, 0, 0.85);
+  margin: 8px auto; 
+  padding: 0 8px;
+  -webkit-user-select: text; /* selectable text for Chrome app support */
+  transition-property: background-color, color;
+  transition-duration: 2s;
+}
+
+a {
+  /* colored underlined links for XULRunner support */
+  color: blue;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#main {
+	line-height: 1.5;
+}
+
+#text img {
+  max-width: 100%;
+}
+
+.statBar {
+  background-color: #949291;
+  height: 2em;
+  line-height: 2em;
+  margin: 4px 0;
+  width: 300px;
+  max-width: 100%;
+  color: #f7f4f1;
+  position: relative; /* to allow absolute positioned value */
+  z-index: 0;
+}
+.opposed {
+  background-color: #6D6DFC;
+}
+
+table {
+  margin-bottom: 1.5em;
+}
+
+.statText {
+  margin-left: 2ex;
+  text-indent: -1ex;
+}
+
+.statBar > span, .statLine > span {
+  position: relative;
+  z-index: 1; /* visible over stat value */
+  white-space: nowrap; /* remain on single line so we can resize font based on width */
+}
+.statValue {
+  background-color: #ff5955;
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  z-index: -1;
+  /* width will be determined at runtime, 0-100% */
+}
+
+.choice label{
+    padding: 11px 8px 12px;
+    display:block;
+    border-color:#a9acaf;
+    border-style:solid;
+    border-width: 1px 1px 0px 1px
+}
+
+.choice .firstChild{
+    border-top-width:1px;
+    -webkit-border-top-right-radius:8px;
+    -webkit-border-top-left-radius:8px;
+    border-top-right-radius:8px;
+    border-top-left-radius:8px;
+}
+/* IE doesn't support label:last-child */
+.choice .lastChild{
+    border-bottom-width:1px;
+    -webkit-border-bottom-right-radius:8px;
+    -webkit-border-bottom-left-radius:8px;
+    -moz-border-radius:0px 0px 8px 8px;
+    border-bottom-right-radius:8px;
+    border-bottom-left-radius:8px;
+}
+.choice .onlyChild{
+    border-width:1px;
+    -webkit-border-radius:8px;
+    -moz-border-radius:8px;
+    border-radius:8px;
+}
+
+.choice .noBorder {
+  border-width: 0;
+}
+
+input[type="radio"], input[type="checkbox"] {
+  margin-right: 8px;
+}
+
+.saveGame>label {
+  display:block;
+}
+
+.choice .disabled {
+  color: gray;
+}
+
+input[type=password]:disabled {
+  background-color: lightgray;
+}
+
+/* Reset for Firefox vs. Chrome */
+input[type=email],input[type=password] {
+  padding: 1px;
+  margin: 2px 0;
+}
+
+.next {
+    clear: both;
+    display:block;
+    width:100%;
+    font-size:1.5em;
+    font-weight:bolder;
+    font-family: -apple-system, sans-serif; /* reset, for Android */
+    margin-bottom: 1em; /* reset button margin */
+    -webkit-appearance: none; /* Safari, don't override my CSS styles */
+    color: #f7f4f1; /* Match background color */ 
+    background-color: #626160;
+    border: none;
+    -webkit-border-radius: 0.5em;
+    -moz-border-radius: 0.5em;
+    border-radius: 0.5em;
+    padding: 6px;
+}
+
+.linkButton {
+  text-align: center;
+  text-decoration: none;
+}
+
+.next:hover {
+  color: #E4DED8;
+}
+
+h1 {
+  font-size: 1.5em;
+  font-weight: normal;
+}
+
+h2 {
+  font-size: 1.125em;
+  font-weight: normal;
+}
+
+#identity {
+  float: right;
+  display: none;
+}
+
+#identity > a {
+  display: block;
+  text-align: end;
+}
+
+#footer {
+  margin:10px 0px 75px 0px;
+}
+
+#mobileLinks a img {
+  border: 0;
+}
+
+.mobileBadges {
+  margin: 0;
+}
+
+.spacedLink {
+  margin-right:0.5em;
+}
+
+.spacedLink:last-child {
+  margin-right:0;
+}
+
+#sharelist {
+  margin: 0; /* Eliminate leading space before share links */
+}
+
+#sharelist li {
+  line-height: 1cm; /* Don't let the links bunch up */
+}
+
+.alertify-cover {
+  background-color: black;
+  filter:alpha(opacity=50);
+  opacity: 0.5;
+}
+
+#greybackground {
+    position: fixed;
+    width:100%;
+    height:100%;
+    background-color: black;
+    filter:alpha(opacity=50);
+    opacity: 0.5;
+    top:0;
+    left:0;
+}
+
+.savePassword {
+  font-family: monospace;
+  display: block;
+}
+
+.webOnly { /* We'll override this in JavaScript */
+  display: none;
+}
+
+.alignleft {
+  display: inline;
+  float: left;
+  margin-right: 1.625em;
+  margin-bottom: 1.5em;
+}
+.alignright {
+  display: inline;
+  float: right;
+  margin-left: 1.625em;
+  margin-bottom: 1.5em;
+}
+.aligncenter {
+  clear: both;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 1.5em;
+}
+
+#main form {
+  clear: both;
+}
+
+.paidOnly {
+  display: none;
+}
+
+.videoWrapper {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 */
+  height: 0;
+}
+
+.videoWrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body.nightmode {
+  background-color: #242424;
+  color: rgba(255,255,255,0.85);
+}
+
+body.nightmode a {
+  color: #7bc8fa;
+}
+
+body.nightmode .next {
+  color: #242424; /* Match background color */
+  background-color: #D9D9D9;
+}
+
+body.nightmode .next:hover {
+  color: #555;
+}
+
+body.nightmode .alertify {
+  color: black;
+}
+
+body.nightmode a.alertify-button {
+  color: white;
+}
+
+body.nightmode img.invert {
+  -webkit-filter: invert(100%);
+  filter: invert(100%);
+}
+
+body.whitemode {
+  background-color: white;
+}
+
+body.whitemode .next {
+  color: white; /* Match background color */
+}
+
+body.whitemode .next:hover {
+  color: #ddd;
+}
+
+@media only screen and (max-width: 480px) {
+  .definition{
+    display: none;
+  }
+  
+  #headerLinks {
+    line-height: 2; /* For tapability */
+  }
+
+  .gameTitle {
+    display: none;
+  }
+
+  #advertisement {
+    margin: -8px;
+  }
+  
+  .mobileBadges {
+    float: none;
+  }
+  
+  #header {
+    margin-top: 30px;
+  }
+
+  /** Floating images should leave enough room for text */
+  #text .alignleft, #text .alignright {
+    max-width: 45%;
+  }
+  
+}
+.alertify-show,
 .alertify-log {
 	-webkit-transition: all 500ms cubic-bezier(0.175, 0.885, 0.320, 1); /* older webkit */
 	-webkit-transition: all 500ms cubic-bezier(0.175, 0.885, 0.320, 1.275);
@@ -8990,273 +10153,4 @@ stats = {};
 	.alertify-log-success {
 		background: #5CB811;
 		background: rgba(92,184,17,.9);
-	}body {
-  max-width: 680px;
-  _width:expression(this.scrollWidth > 680 ? "680px" : "auto");
-  font-size: 100%;  /* reset for CWS */
-  font: -apple-system-body; /* we'll override the font, but keep the size from iOS dynamic text sizing */
-  font-family: Georgia,"Times New Roman",serif;
-  background-color: #F7F4F1;
-  color: rgba(0, 0, 0, 0.85);
-  margin: 8px auto; 
-  padding: 0 8px;
-  -webkit-user-select: text; /* selectable text for Chrome app support */
-}
-
-a {
-  /* colored underlined links for XULRunner support */
-  color: blue;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-#main {
-	line-height: 1.5;
-}
-
-#text img {
-  max-width: 100%;
-}
-
-.statBar {
-  background-color: #949291;
-  height: 2em;
-  line-height: 2em;
-  margin: 4px 0;
-  width: 300px;
-  color: #f7f4f1;
-  position: relative; /* to allow absolute positioned value */
-  z-index: 0;
-}
-.opposed {
-  background-color: #6D6DFC;
-}
-
-table {
-  margin-bottom: 1.5em;
-}
-
-.statBar > span, .statLine > span {
-  position: relative;
-  z-index: 1; /* visible over stat value */
-  white-space: nowrap; /* remain on single line so we can resize font based on width */
-}
-.statValue {
-  background-color: #ff5955;
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  z-index: -1;
-  /* width will be determined at runtime, 0-100% */
-}
-
-.choice label{
-    padding: 11px 8px 12px;
-    display:block;
-    border-color:#a9acaf;
-    border-style:solid;
-    border-width: 1px 1px 0px 1px
-}
-
-.choice .firstChild{
-    border-top-width:1px;
-    -webkit-border-top-right-radius:8px;
-    -webkit-border-top-left-radius:8px;
-    border-top-right-radius:8px;
-    border-top-left-radius:8px;
-}
-/* IE doesn't support label:last-child */
-.choice .lastChild{
-    border-bottom-width:1px;
-    -webkit-border-bottom-right-radius:8px;
-    -webkit-border-bottom-left-radius:8px;
-    -moz-border-radius:0px 0px 8px 8px;
-    border-bottom-right-radius:8px;
-    border-bottom-left-radius:8px;
-}
-.choice .onlyChild{
-    border-width:1px;
-    -webkit-border-radius:8px;
-    -moz-border-radius:8px;
-    border-radius:8px;
-}
-
-.choice .noBorder {
-  border-width: 0;
-}
-
-input[type="radio"], input[type="checkbox"] {
-  margin-right: 8px;
-}
-
-.saveGame>label {
-  display:block;
-}
-
-.choice .disabled {
-  color: gray;
-}
-
-input[type=password]:disabled {
-  background-color: lightgray;
-}
-
-/* Reset for Firefox vs. Chrome */
-input[type=email],input[type=password] {
-  padding: 1px;
-  margin: 2px 0;
-}
-
-.next {
-    clear: both;
-    display:block;
-    width:100%;
-    font-size:1.5em;
-    font-weight:bolder;
-    font-family: -apple-system, sans-serif; /* reset, for Android */
-    margin-bottom: 1em; /* reset button margin */
-    -webkit-appearance: none; /* Safari, don't override my CSS styles */
-    color: #f7f4f1; /* Match background color */ 
-    background-color: #626160;
-    border: none;
-    -webkit-border-radius: 0.5em;
-    -moz-border-radius: 0.5em;
-    border-radius: 0.5em;
-    padding: 6px;
-}
-
-.next:hover {
-  color: #E4DED8;
-}
-
-h1 {
-  font-size: x-large;
-  font-weight: normal;
-}
-
-h2 {
-  font-size: large;
-  font-weight: normal;
-}
-
-#identity {
-  float: right;
-  display: none;
-}
-
-#identity > a {
-  display: block;
-  text-align: end;
-}
-
-#footer {
-  margin:10px 0px 75px 0px;
-}
-
-#mobileLinks a img {
-  border: 0;
-}
-
-.mobileBadges {
-  margin: 0;
-}
-
-.spacedLink {
-  margin-right:0.5em;
-}
-
-.spacedLink:last-child {
-  margin-right:0;
-}
-
-#sharelist {
-  margin: 0; /* Eliminate leading space before share links */
-}
-
-#sharelist li {
-  line-height: 1cm; /* Don't let the links bunch up */
-}
-
-.alertify-cover {
-  background-color: black;
-  filter:alpha(opacity=50);
-  opacity: 0.5;
-}
-
-#greybackground {
-    position: fixed;
-    width:100%;
-    height:100%;
-    background-color: black;
-    filter:alpha(opacity=50);
-    opacity: 0.5;
-    top:0;
-    left:0;
-}
-
-.savePassword {
-  font-family: monospace;
-  display: block;
-}
-
-.webOnly { /* We'll override this in JavaScript */
-  display: none;
-}
-
-.alignleft {
-  display: inline;
-  float: left;
-  margin-right: 1.625em;
-  margin-bottom: 1em;
-}
-.alignright {
-  display: inline;
-  float: right;
-  margin-left: 1.625em;
-  margin-bottom: 1em;
-}
-.aligncenter {
-  clear: both;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  margin-bottom: 1em;
-}
-
-#main form {
-  clear: both;
-}
-
-@media only screen and (max-width: 480px) {
-  .definition{
-    display: none;
-  }
-  
-  #headerLinks {
-    line-height: 2; /* For tapability */
-  }
-
-  .gameTitle {
-    display: none;
-  }
-
-  #advertisement {
-    margin: -8px;
-  }
-  
-  .mobileBadges {
-    float: none;
-  }
-  
-  #header {
-    margin-top: 30px;
-  }
-
-  /** Floating images should leave enough room for text */
-  #text .alignleft, #text .alignright {
-    max-width: 45%;
-  }
-  
-}
-</style>
+	}</style>

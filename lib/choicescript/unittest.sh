@@ -1,1 +1,0 @@
-node $1 tests/suite.js tests/qunit.js web/scene.js web/util.js headless.js tests/scenetest.js 

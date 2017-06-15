@@ -10,16 +10,23 @@ body {
     background-color: #f8f6fb;
     height:100%;
     width:100%;
-    font-family: "Avant Garde", "Avantgarde", "Century Gothic", "CenturyGothic", "AppleGothic", "sans-serif";
+    font-family: "Century Gothic", "CenturyGothic", "AppleGothic", "arial";
     color:rgb(105, 105, 105);
     font-size:12px;
+}
+blockquote {
+    background: lightgrey;
+    padding: 10px;
+    border-radius: 5px;
+    color: #4e4e4e;
+    border: 1px solid grey;
 }
 table {
     margin: 0 auto;
     min-width: 80%;
     text-align: left;
 }
-td:nth-child(1), th:nth-child(1) {  
+td:nth-child(1), th:nth-child(1) {
     text-align: left;
 }
 h1 {
@@ -78,19 +85,27 @@ a.show {
 a.show::after {
     content: "[show]";
 }
-.nav {
+.nav, .feed {
     padding: 0px;
     list-style: none;
     margin: 0px;
 }
-.nav li {
-    height: 40px;
+.nav li > h3 {
+    font-weight: bold;
 }
 .nav li:nth-child(odd) > a {
      background-color: rgb(247, 247, 252);
 }
 .nav li:nth-child(even) > a {
      background-color: rgb(242, 241, 247);
+}
+.feed li {
+  padding: 10px;
+  border-bottom: 1px #d4d4d4 solid;
+}
+.feed h3 {
+  padding: 0px;
+  border-bottom: none;
 }
 #content {
     position: relative;
@@ -217,7 +232,6 @@ pre {
     color: rgba(0, 0, 0, 1);
     border: solid 1px #C9C9C9;
     width: 90%;
-    height: 500px;
     overflow: auto;
     margin: 20px auto;
 }

@@ -1,53 +1,31 @@
 ## Publishing & Exporting
 
-Ready to publish or export your project?
+You've been working hard on your game, and you're ready to put up a public version for beta testing. Maybe you've even finished the beta testing stage, and you're at that exciting point when you submit the finished game for publication.
 
-Choice of Games LLC handle the actual publishing and selling of ChoiceScript games, and you can learn more about that [here](https://www.choiceofgames.com/looking-for-writers/ "Choice of Games - Looking for Writers"). If you're just looking for a way to get your Project running outside of CSIDE however, perhaps for public beta testing purposes, then read on!
+Choice of Games/Hosted Games LLC handles the actual publishing and selling of ChoiceScript games, and you can learn more about that [here](https://www.choiceofgames.com/looking-for-writers/ "Choice of Games - Looking for Writers"). If you're looking for a way to get your project running outside of CSIDE for public beta testing purposes, read on!
 
 
 ### Exporting as Compiled Game
 
-A Compiled Game consists of a single HTML file, able to be uploaded to an online location, such as your own web server, or Dropbox, and thereby be made available for public beta testing purposes simply by then sharing a link to that file online - typically in Choice of Games' own [WIPs Forum](https://forum.choiceofgames.com/c/works-in-progress "Choice of Games - WIP Forum").
+A compiled game is a single .html file; clicking it runs your game in a web browser tab. To compile a game, right-click the project header bar and select 'Export: Compiled Game'. You'll be prompted to select a save location for the compiled file in either a new or existing folder.
 
-To compile your game into a single HTML file, right-click the Project header bar and select Export: Compiled Game. You will be prompted to select an existing folder (or create a new one) to which the compiled file will be saved.
+Compiled games can be hosted online on a private web server, like any other website, or via Dashingdon for beta testing purposes (see below for details).
 
-The minor disadvantage of this method for public beta testing purposes is that to update even the tiniest portion of your game online (e.g. to implement a relatively minor bug fix) means having to re-compile and re-upload a new copy of the entire thing. Conversely, the solid advantage of this method is that the actual process is relatively quick and painless and you have just a single file to deal with: a Compiled Game does not require any other files in order to be played / tested online.
+> Note: If you wish to include images within your compiled game, please see the topic on [Image Scenes](topics/image-scenes.md " Image Scenes").
 
 
 ### Exporting as Scene Files
 
-You can also export your game as individual scene files. either as a separate backup, for submission to Choice of Games LLC for final publication, or for public beta testing purposes.
+You can export your game as individual scene files, either as a backup, as a play-test version for your beta testers, or as a completed game for submission to Choice of Games LLC when looking to publish.
 
-To export your actual game files, right-click the Project header bar and select Export: All scenes to folder. You will be prompted to select an existing folder (or create a new one) to which the new copy of your scene files will be saved.
-
-For public beta testing purposes, however, this method is probably less than ideal for most authors, requiring that not only your scene files but also the ChoiceScript files themselves must be properly uploaded online to enable testers to run your game in their browser. The one real advantage is that minor changes / bug fixes are very easy to implement, as only the updated scene file(s) will need uploading.
-
-Note that you can also export individual scene files (e.g. for uploading quick bug fixes - especially if your public beta test uses the Dropbox 'Public' folder facility) simply by right-clicking the actual scene in question and selecting Export: copy file to folder.
+To export your scenes, right-click the project header bar and select 'Export: All Scenes To Folder'. You will be prompted to select a save location for your scenes in an existing or newly-created folder. Scene files can be uploaded to Dashingdon's free ChoiceScript game hosting service to create a public beta test of your game online (see below for details).
 
 
-### Public Beta Testing - Dropbox Hosting / Backups
+### Public Beta Testing - Dashingdon.com
 
-[Dropbox](https://www.dropbox.com "Dropbox") is a free, secure online file hosting service which also provides a handy desktop application for ease of use: any files placed in the Dropbox folder on your own computer (e.g. by using any of the CSIDE Export features described above) will also be automatically uploaded to your Dropbox account online, and you control who has access to them. (If nothing else, Dropbox provides a useful off-site backup service for your most critical files, as insurance against disaster at home.)
+When you're ready to share your game during the beta testing process, Dashingdon offers free hosting for your game, either as a compiled .html file or as a collection of .txt scenes. Dashingdon.com also supports images, a save plug-in, automatic Twitter announcements when your public beta is updated, and more.
 
-Although the Dropbox 'Public' folder facility is now a monthly subscription service, it is still possible to use an ordinary (i.e. free) Dropbox folder to host a Compiled Game (single HTML file) for public beta testing purposes, as follows:
-
-1. Register for a free Dropbox account and download / install the desktop application. This will create a Dropbox folder on your computer.
-
-2. 'Export as Compiled Game' - use this CSIDE facility, as described above, to place the compiled HTML file in the Dropbox folder on your computer. The file will be automatically uploaded to your  Dropbox account online.
-
-3. Right-click the HTML file in your Dropbox folder and select 'Copy Dropbox Link'.
-
-4. Paste the link into a text editor, email or forum post. It will look something like this:
-
-  https://www.dropbox.com/s/z06ut7b2z5fbpt5/mygame_complete.html
-
-5. Edit it to replace "www" with "dl" and "dropbox" with "dropboxusercontent", so it looks like this:
-
-  https://dl.dropboxusercontent.com/s/z06ut7b2z5fbpt5/mygame_complete.html
-
-6. Post or mail the edited link for your play-testers to use to access your Compiled Game online.
-
-7. When you update your game files within CSIDE and wish to publish a new version of your public beta test, simply delete the old HTML file in your Dropbox folder and repeat the steps above to generate a new version of your game online. Remember to update the link itself wherever posted.
+Please see the [Dashingdon:Free ChoiceScript Game Hosting website](https://dashingdon.com/ "Dashingdon - ChoiceScript Hosting") or the service's [forum thread](https://forum.choiceofgames.com/t/dashingdon-free-choicescript-game-hosting/9250 "Dashingdon Thread on the Choice of Games Forum") for more information, or to make a free account.
 
 
 **Next Topic**: [Further Reading](topics/further-reading.md "Further reading")

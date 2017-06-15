@@ -26,22 +26,20 @@ either express or implied.
 
 <script>window.version="UNKNOWN"</script>
 <script src="lib/jquery/jquery-1.11.3.min.js"></script>
-<script src="lib/choicescript/web/persist.js"></script>
-<script src="lib/choicescript/web/alertify.min.js"></script>
-<script src="lib/choicescript/web/util.js"></script>
-<script src="lib/choicescript/web/ui.js"></script>
-<script src="lib/choicescript/web/scene.js"></script>
-<script src="lib/choicescript/web/navigator.js"></script>
-<script src="js/cs_override.js"></script>
+<script src="node_modules/cside-choicescript/web/persist.js"></script>
+<script src="node_modules/cside-choicescript/web/alertify.min.js"></script>
+<script src="node_modules/cside-choicescript/web/util.js"></script>
+<style id="dynamic"></style>
+<script src="node_modules/cside-choicescript/web/ui.js"></script>
+<script src="node_modules/cside-choicescript/web/scene.js"></script>
+<script src="node_modules/cside-choicescript/web/navigator.js"></script>
+<script src="js/cs_override.min.js"></script>
 <script src="mods/choicescript-plus.js"></script>
 <!-- <script src="mods/smPlugin.js"></script> -->
 <script src="mods/cs-console.js"></script>
-<link href="lib/choicescript/web/alertify.css" rel="stylesheet" type="text/css">
-<link href="lib/choicescript/web/style.css" rel="stylesheet" type="text/css">
-<link rel="icon" type="image/vnd.microsoft.icon" href="img/cside.ico">
+<link href="node_modules/cside-choicescript/web/alertify.css" rel="stylesheet" type="text/css">
+<link href="node_modules/cside-choicescript/web/style.css" rel="stylesheet" type="text/css">
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<link rel="apple-touch-icon-precomposed" href="mobile-icon.png"/>
-<link rel="SHORTCUT ICON" href="choicescript/web/favicon.ico"/>
 <script>
 // INSERT store name; disabled by default because it's confusing for newbie authors
 window.storeName = "CSIDE";
@@ -61,7 +59,7 @@ var rootDir = "../";
   <p id="headerLinks">
       <!-- <a href="credits.html" id="aboutLink" class="spacedLink">About</a> -->
     </p>
-  <p><button id="statsButton" class="spacedLink" onclick="showStats()">Show Stats</button> <button id="restartButton" class="spacedLink" onclick="restartGame('prompt')">Restart</button>
+  <p id="buttons"><button id="statsButton" class="spacedLink" onclick="showStats()">Show Stats</button> <button id="restartButton" class="spacedLink" onclick="restartGame('prompt')">Restart</button>
   <button id="achievementsButton" onclick="showAchievements()" class="spacedLink" style="display: none">Achievements</button></p>
 </div>
 <div id="main">
@@ -72,14 +70,6 @@ startLoading();
 </script>
 </div>
 <div id="mobileLinks" class="webOnly">
-  <!-- INSERT fixed links
-  <p class="mobileBadges">
-    <a class='spacedLink' id='iphoneLink' href='http://itunes.apple.com/us/app/choice-of-broadsides/id365660770'><img src='../icons/appstore.png' style='height: 3em;'></a>
-    <a class='spacedLink' id='androidLink' href='https://play.google.com/store/apps/details?id=com.choiceofgames.broadsides'><img src='../icons/droid.png' style='height: 3em;'></a>
-    <a class='spacedLink' id='kindleLink' href='http://www.amazon.com/Choice-of-Broadsides/dp/B004FRH3PO'><img src='../icons/kindle.png' style='height: 3em;'></a>
-    <a class='spacedLink' id='chromeLink' href='https://chrome.google.com/webstore/detail/donhlnjhcdnocioldondhgngncepnpch'><img src='../icons/chrome.png' style='height: 3em;'></a>
-  </p>
-  -->
 </div>
 <p id="emailUs">Love it?  Hate it?  Write us at <a id="supportEmail" href='mailto:support-external@choiceofgames.com'>support@choiceofgames.com</a></p>
 <noscript>

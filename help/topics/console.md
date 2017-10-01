@@ -115,7 +115,7 @@ The following commands may be used in the game code, and function as described a
 \*console_log prints the value of a variable or valid expression into the Console at a particular point in your game. For instance, if your game reads:
 
 <pre>
- *console_log "Expression for *if check under option 1"
+ *console_log "Evaluation for *if check under option 1"
  *console_log (((charisma > 50) and (unrest < 50)) and (enemy_speaker < 50)) or (ally != "Unknown")
  *choice
    #Talk the unruly townspeople into cooperating.
@@ -129,7 +129,7 @@ The following commands may be used in the game code, and function as described a
 
 Assuming the first expression is true, the Console log would read:
 
-Expression for \*if check under option 1
+Evaluation for \*if check under option 1
 <br>True
 
 ### Important Notes on \*console_ Commands:

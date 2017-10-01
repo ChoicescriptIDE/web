@@ -1,2 +1,0 @@
-RedirectMatch permanent ^/$ /mygame/
-RedirectMatch permanent ^/index.html$ /mygame/

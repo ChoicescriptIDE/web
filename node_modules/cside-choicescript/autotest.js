@@ -227,13 +227,15 @@ if (fullGame) {
             if (/[\[\{]/.test(data)) {
               // print warning?
             } else {
-              words = data.split(/ /);
-              if (words[0] !== "") {
-                addFile(words[0]+".txt");
-              }
-              if (words.length > 1) {
-                if (!gotoSceneLabels[words[0]]) gotoSceneLabels[words[0]] = [];
-                gotoSceneLabels[words[0]].push({origin:sceneName, originLine:j, label:words[1]});
+              var match = /(\S+)\s+(\S+)\s*(.*)/.exec(data);
+              if (match) {
+                if (match[3]) {
+                  // parameters; print warning?
+                } else {
+                  addFile(match[1]+".txt");
+                  if (!gotoSceneLabels[match[1]]) gotoSceneLabels[match[1]] = [];
+                  gotoSceneLabels[match[1]].push({origin:sceneName, originLine:j, label:match[2]});
+                }
               }
             }
           } else if (command == "save_game") {
@@ -255,7 +257,9 @@ if (fullGame) {
   }());
 }
 
-(function(){
+
+
+var exitCode = (function(){
   for (var i = 0; i < list.length; i++) {
     print(list[i]);
     if (isRhino) java.lang.Thread.sleep(100); // sleep to allow print statements to flush :-(
@@ -278,7 +282,8 @@ if (fullGame) {
       if (isRhino) {
         java.lang.System.exit(1);
       } else {
-        process.exit(1);
+        process.exitCode = 1;
+        return 1;
       }
     }
     if (uncovered) {
@@ -287,6 +292,7 @@ if (fullGame) {
   }
 }());
 
+if (exitCode) return;
 
 var allLinesTested = true;
 for (var i = 0; i < uncoveredScenes.length; i++) {

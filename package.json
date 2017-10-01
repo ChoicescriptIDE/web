@@ -1,7 +1,7 @@
 {
   "name": "CSIDE",
   "main": "index.html",
-  "version": "1.0.1",
+  "version": "1.1.1",
   "devDependencies": {
     "grunt": "^1.0.1",
     "grunt-auto-install": "^0.3.1",
@@ -19,11 +19,10 @@
     "uglifyjs": "^2.4.10"
   },
   "dependencies": {
-    "bootstrap-menu": "^1.0.14",
-    "choicescript": "git://github.com/ChoicescriptIDE/choicescript.git",
-    "codemirror": "ChoicescriptIDE/CodeMirror.git",
+    "cside-choicescript": "github:ChoicescriptIDE/choicescript",
+    "cside-codemirror": "github:ChoicescriptIDE/codemirror",
     "dropbox": "^2.5.2",
-    "knockout": "^3.2.0",
+    "knockout": "3.2.0",
     "mousetrap": "^1.6.0",
     "trash": "^2.0.0",
     "username": "^1.0.1"

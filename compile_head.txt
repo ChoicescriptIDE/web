@@ -1597,6 +1597,7 @@ _global = this;
   _global.isSafari = /Safari/.test(userAgent);
   _global.isIE = /(MSIE|Trident)/.test(userAgent);
   _global.isIPad = /iPad/.test(userAgent);
+  _global.isIPhone = /iPhone/.test(userAgent);
   _global.isKindleFire = /Kindle Fire/.test(userAgent);
   _global.isWinStoreApp = "ms-appx:" == protocol;
   _global.isCef = !!_global.cefQuery;
@@ -2395,6 +2396,7 @@ function num(x, line) {
     if (!line) line = "UNKNOWN";
     var x_num = parseFloat(x);
     if (isNaN(x_num)) throw new Error("line "+line+": Not a number: " + x);
+    if (!isFinite(x_num)) throw new Error("line "+line+": Not finite " + x);
     return x_num;
 }
 
@@ -2504,6 +2506,25 @@ function parseDateStringInCurrentTimezone(YYYY_MM_DD, line) {
   var shortMonthString = shortMonthStrings[oneBasedMonthNumber];
   return new Date(shortMonthString + " " + dayOfMonth + ", " + fullYear);
 }
+
+function matchBracket(line, brackets, startIndex) {
+  var openBracket = brackets[0];
+  var closeBracket = brackets[1];
+  var brackets = 0;
+  for (var i = startIndex; i < line.length; i++) {
+    var c = line.charAt(i);
+    if (c === openBracket) {
+      brackets++;
+    } else if (c === closeBracket) {
+      if (brackets) {
+        brackets--;
+      } else {
+        return i;
+      }
+    }
+  }
+  return -1;
+}
 /*
  * Copyright 2010 by Dan Fabulich.
  *
@@ -2523,6 +2544,18 @@ function parseDateStringInCurrentTimezone(YYYY_MM_DD, line) {
  * either express or implied.
  */
 
+;(function() {
+  var lastTime = 0;
+  if (!window.requestAnimationFrame)
+    window.requestAnimationFrame = function(callback, element) {
+        var currTime = new Date().getTime();
+        var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+        var id = window.setTimeout(function() { callback(currTime + timeToCall); },
+          timeToCall);
+        lastTime = currTime + timeToCall;
+        return id;
+    };
+})();
 
 function printx(msg, parent) {
     if (msg === null || msg === undefined || msg === "") return;
@@ -2532,15 +2565,7 @@ function printx(msg, parent) {
       parent.appendChild(document.createTextNode(" "));
       return;
     }
-    msg = (msg+"").replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/\[n\/\]/g, '<br>')
-      .replace(/\[b\]/g, '<b>')
-      .replace(/\[\/b\]/g, '</b>')
-      .replace(/\[i\]/g, '<i>')
-      .replace(/\[\/i\]/g, '</i>');
+    msg = replaceBbCode(msg);
     var frag = document.createDocumentFragment();
     temp = document.createElement('div');
     temp.innerHTML = msg;
@@ -2550,6 +2575,21 @@ function printx(msg, parent) {
     parent.appendChild(frag);
 }
 
+function replaceBbCode(msg) {
+  return msg = String(msg).replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/\[url\=(.*?)\]/g, '<a href="$1">')
+      .replace(/\[\/url\]/g, '</a>')
+      .replace(/\[n\/\]/g, '<br>')
+      .replace(/\[c\/\]/g, '')
+      .replace(/\[b\]/g, '<b>')
+      .replace(/\[\/b\]/g, '</b>')
+      .replace(/\[i\]/g, '<i>')
+      .replace(/\[\/i\]/g, '</i>');
+}
+
 function println(msg, parent) {
     if (!parent) parent = document.getElementById('text');
     printx(msg, parent);
@@ -2557,19 +2597,31 @@ function println(msg, parent) {
     parent.appendChild(br);
 }
 
+function printParagraph(msg, parent) {
+  if (msg === null || msg === undefined || msg === "") return;
+  if (!parent) parent = document.getElementById('text');
+  msg = replaceBbCode(msg);
+  p = document.createElement('p');
+  p.innerHTML = msg;
+  parent.appendChild(p);
+  return p;
+}
 
 function showStats() {
     if (document.getElementById('loading')) return;
     var button = document.getElementById("statsButton");
     if (button && button.innerHTML == "Return to the Game") {
-      setButtonTitles();
-      return clearScreen(loadAndRestoreGame);
+      return clearScreen(function() {
+        setButtonTitles();
+        loadAndRestoreGame();
+      });
     }
-    setButtonTitles();
     var currentScene = window.stats.scene;
     var scene = new Scene("choicescript_stats", window.stats, this.nav, {secondaryMode:"stats", saveSlot:"temp"});
-    main.innerHTML = "<div id='text'></div>";
-    scene.execute();
+    clearScreen(function() {
+      setButtonTitles();
+      scene.execute();
+    })
 }
 
 function redirectFromStats(scene, label, originLine, callback) {
@@ -2588,18 +2640,24 @@ function showAchievements(hideNextButton) {
   var button = document.getElementById("achievementsButton");
   if (!button) return;
   if (button.innerHTML == "Return to the Game") {
-    setButtonTitles();
-    return clearScreen(loadAndRestoreGame);
+    return clearScreen(function() {
+      setButtonTitles();
+      loadAndRestoreGame();
+    });
   }
-  setButtonTitles();
-  button.innerHTML = "Return to the Game";
   clearScreen(function() {
+    setButtonTitles();
+    var button = document.getElementById("achievementsButton");
+    button.innerHTML = "Return to the Game";
     checkAchievements(function() {
       printAchievements(document.getElementById("text"));
       if (!hideNextButton) printButton("Next", main, false, function() {
-        setButtonTitles();
-        clearScreen(loadAndRestoreGame);
+        clearScreen(function() {
+          setButtonTitles();
+          loadAndRestoreGame();
+        });
       });
+      curl();
     });
   });
 }
@@ -2609,12 +2667,15 @@ function showMenu() {
   var button = document.getElementById("menuButton");
   if (!button) return;
   if (button.innerHTML == "Return to the Game") {
-    button.innerHTML = "Menu";
-    return clearScreen(loadAndRestoreGame);
+    return clearScreen(function() {
+      setButtonTitles();
+      loadAndRestoreGame();
+    });
   }
-  setButtonTitles();
-  button.innerHTML = "Return to the Game";
   function menu() {
+    setButtonTitles();
+    var button = document.getElementById("menuButton");
+    button.innerHTML = "Return to the Game";
     options = [
       {name:"Return to the game.", group:"choice", resume:true},
       /*{name:"View the credits.", group:"choice", credits:true},
@@ -2624,11 +2685,14 @@ function showMenu() {
       {name:"Email me when new games are available.", group:"choice", subscribe:true},*/
       {name:"Make the text bigger or smaller.", group:"choice", fontSizeMenu:true},
       {name:"Change the background color.", group:"choice", background:true},
+      {name:"Change the animation between pages.", group:"choice", animation:true},
     ];
     printOptions([""], options, function(option) {
       if (option.resume) {
-        setButtonTitles();
-        return clearScreen(loadAndRestoreGame);
+        return clearScreen(function() {
+          setButtonTitles();
+          loadAndRestoreGame();
+        });
       } else if (option.credits) {
         absolutizeAboutLink();
         aboutClick();
@@ -2646,11 +2710,14 @@ function showMenu() {
       } else if (option.contactUs) {
         window.location.href="mailto:"+getSupportEmail();
       } else if (option.fontSizeMenu) {
-        fontSizeMenu();
+        textOptionsMenu({size:1});
       } else if (option.background) {
-        backgroundColorMenu();
+        textOptionsMenu({color:1});
+      } else if (option.animation) {
+        textOptionsMenu({animation:1});
       }
     });
+    curl();
   }
   clearScreen(menu);
 }
@@ -2659,10 +2726,10 @@ function setButtonTitles() {
   var button;
   button = document.getElementById("menuButton");
   if (button) {
-    if (window.isWeb) {
-      menuButton.innerHTML = "Settings";
-    } else {
+    if (window.isCef || window.isNode || window.isMacApp) {
       button.innerHTML = "Menu";
+    } else {
+      button.innerHTML = "Settings";
     }
   }
   button = document.getElementById("statsButton");
@@ -2680,72 +2747,76 @@ function setButtonTitles() {
   }
 }
 
-function fontSizeMenu() {
-  clearScreen(function() {
-    var text = document.getElementById("text");
-    var oldZoom = getZoomFactor();
-    text.innerHTML = "<p>Make the text bigger or smaller.</p>";
-    options = [
-      {name:"Return to the game.", group:"choice", resume:true},
-      {name:"Make the text bigger.", group:"choice", bigger:true},
-      {name:"Make the text smaller.", group:"choice", smaller:true},
-    ];
-    if (oldZoom <= 0.5) {
-      options[options.length-1].unselectable = true;
-    }
-    if (oldZoom !== 1) {
-      options.push({name:"Reset the text to its original size.", group:"choice", reset:true});
-    }
-    printOptions([""], options, function(option) {
-      if (option.resume) {
-        setButtonTitles();
-        return clearScreen(loadAndRestoreGame);
-      } else if (option.reset) {
-        setZoomFactor(1);
-        fontSizeMenu();
-      } else {
-        changeFontSize(option.bigger);
-        fontSizeMenu();
-      }
-    })
-  });
-}
 
-function textOptionsMenu() {
+function textOptionsMenu(categories) {
+  if (!categories) {
+    categories = {size:1, color:1, animation:1};
+    if (document.getElementById('loading')) return;
+    var button = document.getElementById("menuButton");
+    if (!button) return;
+    if (button.innerHTML == "Menu") return showMenu();
+    if (button.innerHTML == "Return to the Game") {
+      return clearScreen(function() {
+        setButtonTitles();
+        loadAndRestoreGame();
+      });
+    }
+  }
   clearScreen(function() {
+    var button = document.getElementById("menuButton");
+    if (button) button.innerHTML = "Return to the Game";
     var text = document.getElementById("text");
     var oldZoom = getZoomFactor();
-    text.innerHTML = "<p>Change the size and color of the text.</p>";
+    if (categories.size && categories.color) {
+      text.innerHTML = "<p>Change the game's appearance.</p>";
+    } else if (categories.size) {
+      text.innerHTML = "<p>Make the text bigger or smaller.</p>";
+    } else if (categories.color) {
+      text.innerHTML = "<p>Change the background color.</p>";
+    } else if (categories.animation) {
+      text.innerHTML = "<p>Change the animation between pages.</p>";
+    }
     options = [
       {name:"Return to the game.", group:"choice", resume:true},
-      {name:"Make the text bigger.", group:"choice", bigger:true},
-      {name:"Make the text smaller.", group:"choice", smaller:true},
     ];
-    if (oldZoom <= 0.5) {
-      options[options.length-1].unselectable = true;
+    if (categories.size) {
+      options.push(
+        {name:"Make the text bigger.", group:"choice", bigger:true},
+        {name:"Make the text smaller.", group:"choice", smaller:true}
+      );
+      if (oldZoom <= 0.5) {
+        options[options.length-1].unselectable = true;
+      }
+      if (oldZoom !== 1) {
+        options.push({name:"Reset the text to its original size.", group:"choice", reset:true});
+      }
     }
-    if (oldZoom !== 1) {
-      options.push({name:"Reset the text to its original size.", group:"choice", reset:true});
-    }
-    options.push(
+    if (categories.color) options.push(
       {name:"Use a black background.", group:"choice", color:"black"},
       {name:"Use a sepia background.", group:"choice", color:"sepia"},
       {name:"Use a white background.", group:"choice", color:"white"}
     );
+    if (categories.animation) options.push(
+      {name: "Animate between pages.", group:"choice", animation:1},
+      {name: "Don't animate between pages.", group:"choice", animation:2}
+    );
     printOptions([""], options, function(option) {
       if (option.resume) {
-        setButtonTitles();
-        return clearScreen(loadAndRestoreGame);
+        return clearScreen(function() {
+          setButtonTitles();
+          loadAndRestoreGame();
+        });
       } else if (option.color) {
         changeBackgroundColor(option.color);
       } else if (option.reset) {
         setZoomFactor(1);
-        textOptionsMenu();
+      } else if (option.animation) {
+        window.animateEnabled = option.animation !== 2;
+        if (initStore()) store.set("preferredAnimation", parseFloat(option.animation));
       } else {
         changeFontSize(option.bigger);
-        textOptionsMenu();
       }
-      curl();
+      textOptionsMenu(categories);
     })
     curl();
   });
@@ -2767,6 +2838,8 @@ function setZoomFactor(zoomFactor) {
     document.body.style.maxWidth = (initialMaxWidth / zoomFactor) + "px";
     document.body.style.transformOrigin = "center top";
     document.body.style.transform = "scale("+zoomFactor+")";
+    document.body.style.webkitTransformOrigin = "center top";
+    document.body.style.webkitTransform = "scale("+zoomFactor+")";
     window.zoomFactor = zoomFactor;
   } else {
     document.body.style.zoom = zoomFactor;
@@ -2785,7 +2858,8 @@ function changeFontSize(bigger) {
 
 function changeBackgroundColor(color) {
   if (color === "sepia") {
-    document.body.classList.remove("nightmode", "whitemode");
+    document.body.classList.remove("nightmode");
+    document.body.classList.remove("whitemode");
   } else if (color === "black") {
     document.body.classList.remove("whitemode");
     document.body.classList.add("nightmode");
@@ -2796,28 +2870,9 @@ function changeBackgroundColor(color) {
   if (initStore()) store.set("preferredBackground", color);
 }
 
-function backgroundColorMenu() {
-  clearScreen(function() {
-    var text = document.getElementById("text");
-    text.innerHTML = "<p>Change the background color.</p>";
-    options = [
-      {name:"Return to the game.", group:"choice", resume:true},
-      {name:"Use a black background.", group:"choice", color:"black"},
-      {name:"Use a sepia background.", group:"choice", color:"sepia"},
-      {name:"Use a white background.", group:"choice", color:"white"},
-    ];
-    printOptions([""], options, function(option) {
-      if (option.resume) {
-        setButtonTitles();
-        return clearScreen(loadAndRestoreGame);
-      } else {
-        changeBackgroundColor(option.color);
-      }
-    })
-  });
+function isNightMode() {
+  return document.body.classList.contains("nightmode");
 }
-
-
 
 function spell(num) {
   if (num > 99) return num;
@@ -2930,12 +2985,6 @@ function printAchievements(target) {
   target.innerHTML = buffer.join("");
 }
 
-// in the iOS app, display a page curl animation
-function curl() {
-  // TODO force a reflow before curling the page
-  callIos("curl");
-}
-
 function asyncAlert(message, callback) {
   if (!callback) callback = function(){};
   if (window.isIosApp) {
@@ -2978,12 +3027,55 @@ function asyncConfirm(message, callback) {
 
 
 function clearScreen(code) {
-    // can't create div via innerHTML; div mysteriously doesn't show up on iOS
-    main.innerHTML = "";
-    var text = document.createElement("div");
-    text.setAttribute("id", "text");
-    main.appendChild(text);
+    var text = document.getElementById("text");
+    var container1 = document.getElementById("container1");
+    if (!container1) throw new Error("<div id=container1> is missing from index.html");
 
+    if (window.animateEnabled && window.animationProperty && !window.isIosApp && !document.getElementById('container2')) {
+      var container2 = document.createElement("div");
+      container2.setAttribute("id", "container2");
+      container2.classList.add('container');
+      document.body.classList.add('frozen');
+      container2.style.opacity = 0;
+
+
+      // get the vertical scroll position as pageYOffset
+      // translate up by pageYOffset pixels, then scroll to the top
+      // now we're scrolled up, but the viewport *looks* like it has retained its scroll position
+      var pageYOffset = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      var extraScroll = 0;
+      if (window.isMobile && window.isWeb && window.isAndroid && !/Chrome/.test(navigator.userAgent)) {
+        extraScroll = 1; // try to hide url bar
+      }
+      pageYOffset -= extraScroll;
+      var zoomFactor = window.zoomFactor || document.body.style.zoom;
+      if (zoomFactor) pageYOffset /= parseFloat(zoomFactor);
+      container1.style.transform = "translateY(-"+pageYOffset+ "px)";
+      container1.style.webkitTransform = "translateY(-"+pageYOffset+ "px)";
+      window.scrollTo(0,extraScroll);
+
+      container2.innerHTML = container1.innerHTML;
+      [].forEach.call(container1.querySelectorAll('input,button,a,textarea,label'), function(element) {
+        element.setAttribute("tabindex", "-1");
+        element.removeAttribute("accesskey");
+      });
+
+      document.body.insertBefore(container2, container1);
+      main = document.getElementById("main");
+      main.innerHTML = "";
+      text = document.createElement("div");
+      text.setAttribute("id", "text");
+      main.appendChild(text);
+      if (window.isChromeApp) fixChromeLinks();
+    } else {
+      main = document.getElementById("main");
+      main.innerHTML = "";
+      text = document.createElement("div");
+      text.setAttribute("id", "text");
+      main.appendChild(text);
+
+      window.scrollTo(0,1);
+    }
 
 
     var useAjax = true;
@@ -2993,18 +3085,6 @@ function clearScreen(code) {
 
     if (useAjax) {
       doneLoading();
-      setTimeout(function() {
-        if (window.isChromeApp) {
-          document.body.firstElementChild.scrollIntoView();
-        } else {
-          window.scrollTo(0,0);
-          if (window.isIosApp || (window.isSafari && window.isMobile && !window.isAndroid)) {
-            // focus on text for iOS Voiceover
-            main.setAttribute("tabindex", "-1");
-            main.focus();
-          }
-        }
-      }, 0);
       safeCall(null, code);
     } else {
       if (!initStore()) alert("Your browser has disabled cookies; this game requires cookies to work properly.  Please re-enable cookies and refresh this page to continue.");
@@ -3016,6 +3096,123 @@ function clearScreen(code) {
       main.appendChild(form);
       form.submit();
     }
+}
+
+// in the iOS app, display a page curl animation
+function curl() {
+  var focusFirst = function() {
+    var text = document.getElementById("text");
+    if (text.firstElementChild) {
+      var focusable = text.firstElementChild;
+      if (/^img$/i.test(focusable.tagName) && focusable.complete === false) {
+        focusable.addEventListener("load", focusFirst);
+        return;
+      }
+      focusable.setAttribute("tabindex", "-1");
+      focusable.classList.add("tempfocus");
+      focusable.focus();
+      focusable.blur();
+      requestAnimationFrame(function() {
+        focusable.focus();
+        requestAnimationFrame(function() {
+          focusable.blur();
+          focusable.removeAttribute("tabindex");
+          focusable.classList.remove("tempfocus");
+        });
+      });
+    }
+  }
+
+  // TODO force a reflow before curling the page
+  var container2 = document.getElementById('container2');
+  if (!container2) {
+    focusFirst();
+    return window.animateEnabled ? callIos("curl") : callIos("unfreeze");
+  }
+
+  var container1 = document.getElementById('container1');
+  var onContainer1Disappeared = function(e) {
+    if (container1.parentElement) container1.parentElement.removeChild(container1);
+  };
+  var onContainer2Appeared = function(e) {
+    document.body.classList.remove('frozen');
+    focusFirst();
+    container2.removeEventListener('transitionend', onContainer2Appeared);
+    container2.removeEventListener('webkitTransitionEnd', onContainer2Appeared);
+  };
+
+  if (!window.isIosApp && window.animationProperty) {
+    var slideoutStyle = document.getElementById('slideoutStyle');
+    if (!slideoutStyle) {
+      slideoutStyle = document.createElement("style");
+      slideoutStyle.setAttribute("id", "slideoutStyle");
+      document.head.appendChild(slideoutStyle);
+    }
+
+    var shouldSlide = true;
+
+    var timingFunction = "\n.container { transition-timing-function: ease-in; };";
+    if (shouldSlide) timingFunction = "";
+
+    slideoutStyle.innerHTML = "@keyframes containerslideout { "+
+      "from { transform: "+container1.style.transform+"; } " +
+      "to   { transform: "+container1.style.transform+" translateX(-105%); } }\n"+
+      "@-webkit-keyframes containerslideout { "+
+      "from { -webkit-transform: "+container1.style.webkitTransform+"; } " +
+      "to   { -webkit-transform: "+container1.style.webkitTransform+" translateX(-105%); } }"+
+      timingFunction;
+
+    // double rAF so we start after container1 is transformed and scrolled to the top
+    // minimizes flicker on iOS
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        if (shouldSlide) {
+          var fastApple = window.isIPad || window.isIPhone || window.isMacApp;
+          var slowAndroid = window.isAndroidApp && /Android 4/.test(navigator.userAgent);
+          var useCssAnimations = fastApple || slowAndroid;
+          if (useCssAnimations) {
+            container1.style[window.animationProperty] = 'containerslideout';
+            container2.style[window.animationProperty] = 'containerslidein';
+          } else {
+            var frames = 0;
+            var durationInSeconds = 0.5;
+            var framesPerSecond = 60;
+            var totalSteps = framesPerSecond * durationInSeconds;
+            var oldContainer1Transform = container1.style.transform;
+            var rafSlide = function(stamp) {
+              var fraction = frames / totalSteps;
+              // ease approximation https://github.com/mietek/ease-tween/blob/master/src/index.js
+              fraction = 1.0042954579734844 * Math.exp(
+                -6.4041738958415664 * Math.exp(
+                  -7.2908241330981340 * fraction));
+              container1.style.transform = container1.style.webkitTransform =
+                oldContainer1Transform + " translateX(-" + (105 * fraction) + "%)";
+              container2.style.transform = container2.style.webkitTransform =
+                "translateX(" + (100 - 100 * fraction) + "%)";
+              if (frames < totalSteps) {
+                frames++;
+                requestAnimationFrame(rafSlide);
+              }
+            }
+            requestAnimationFrame(rafSlide);
+          }
+        }
+        container1.style.opacity = 0;
+        container2.style.opacity = 1;
+        container1.addEventListener('transitionend', onContainer1Disappeared);
+        container2.addEventListener('transitionend', onContainer2Appeared);
+        container1.addEventListener('webkitTransitionEnd', onContainer1Disappeared);
+        container2.addEventListener('webkitTransitionEnd', onContainer2Appeared);
+      })
+    })
+  } else {
+    onContainer2Appeared();
+    onContainer1Disappeared();
+    window.animateEnabled ? callIos("curl") : callIos("unfreeze");
+  }
+
+  container1.removeAttribute("id");
+  container2.setAttribute("id", "container1");
 }
 
 function safeSubmit(code) {
@@ -3031,10 +3228,8 @@ function startLoading() {
       safeCall(null, function() {
         loading = document.createElement('div');
         loading.setAttribute("id", "loading");
-        loading.innerHTML = "<p>Loading...</p><p>"+
-          (/MSIE [67]/.test(navigator.userAgent)?"":"<img src=\"data:image/gif;base64,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\">")+
-          "</p>";
-        main.appendChild(loading);
+        loading.innerHTML = (/MSIE [67]/.test(navigator.userAgent)?"":"<img src=\"data:image/gif;base64,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\">");
+        document.body.appendChild(loading);
       });
     }
 }
@@ -3118,8 +3313,8 @@ function printOptions(groups, options, callback) {
       return false;
   };
 
-  if (!options) throw new Error(this.lineMsg()+"undefined options");
-  if (!options.length) throw new Error(this.lineMsg()+"no options");
+  if (!options) throw new Error("undefined options");
+  if (!options.length) throw new Error("no options");
   // global num will be used to assign accessKeys to the options
   var globalNum = 1;
   var currentOptions = options;
@@ -3150,6 +3345,112 @@ function printOptions(groups, options, callback) {
   }
 
   form.appendChild(document.createElement("br"));
+
+  var touchStartHandler = function (e) {
+    if (e.touches.length > 1) return;
+    var target = e.target;
+    var rect = target.getBoundingClientRect();
+    var shuttle;
+    var shuttleWidth = rect.width * 0.2;
+    //console.log(rect);
+    var lastMouse = e.touches[0];
+    var draw = function () {
+      var transformX = rect.width + rect.left - lastMouse.clientX - (shuttleWidth/2);
+      if (transformX < 0) transformX = 0;
+      var maxX = rect.width - shuttleWidth - 2;
+      if (transformX > maxX) transformX = maxX;
+      if (transformX >= maxX * 0.8) {
+        target.classList.add('selected');
+      } else {
+        target.classList.remove('selected');
+      }
+      shuttle.style.transform = "translateX(-"+transformX+"px)"
+      shuttle.style.webkitTransform = "translateX(-"+transformX+"px)"
+    };
+    var outsideTimeout = null;
+    var moveTracker = function(e) {
+      e.preventDefault();
+      lastMouse = e.touches[0];
+      // on iPad app, touchend doesn't fire outside webview (touchmove does)
+      // so, fire a fake touchend 300 ms after touchmove outside webview
+      if (window.isIosApp && window.isIPad) {
+        if (outsideTimeout) {
+          clearTimeout(outsideTimeout);
+          outsideTimeout = null;
+        }
+        if (lastMouse.pageY < 0 || lastMouse.pageX < 0) {
+          outsideTimeout = setTimeout(function() {
+            document.body.dispatchEvent(new Event('touchend'));
+          }, 300);
+        }
+      }
+      window.requestAnimationFrame(draw);
+    }
+    if ((e.touches[0].clientX - rect.left) > rect.width - shuttleWidth) {
+      shuttle = document.createElement("div");
+      shuttle.classList.add("shuttle");
+      target.appendChild(shuttle);
+      shuttle.style.width = shuttleWidth + "px";
+      document.body.addEventListener('touchmove', moveTracker, {passive: false});
+      var touchEnd = function(e) {
+        document.body.removeEventListener('touchmove', moveTracker, {passive: false});
+        document.body.removeEventListener('touchend', touchEnd);
+        if (target.classList.contains('selected')) {
+          if (target.click) {
+            target.click();
+          } else {
+            var event = document.createEvent('Events');
+            event.initEvent("click", true, true);
+            target.dispatchEvent(event);
+          }
+          if (window.isIosApp) {
+            window.freezeCallback = function() {
+              window.freezeCallback = null;
+              form.onsubmit();
+            };
+            callIos("freeze");
+          } else {
+            safeCall(null, function() {form.onsubmit();});
+          }
+        } else {
+          if (shuttle.style.opacity !== "0") {
+            shuttle.style.opacity = 0;
+            var removeShuttle = function(e) {
+              if (shuttle.parentElement) shuttle.parentElement.removeChild(shuttle);
+            };
+            shuttle.addEventListener('transitionend', removeShuttle);
+            shuttle.addEventListener('webkitTransitionEnd', removeShuttle);
+          } else {
+            if (shuttle.parentElement) shuttle.parentElement.removeChild(shuttle);
+          }
+        }
+      };
+      document.body.addEventListener('touchend', touchEnd);
+    }
+    //console.log(e);
+  };
+
+  var slidingEnabled = true;
+  if (window.slidingEnabled === false || groups.length > 1) slidingEnabled = false;
+
+  if (slidingEnabled) [].forEach.call(document.querySelectorAll('label'), function(label) {
+    label.addEventListener('touchstart', touchStartHandler);
+    if (window.isMobile) label.addEventListener('click', function(e) {
+      var target = e.currentTarget;
+      if (document.body.querySelector(".shuttle.discovery")) return;
+      var shuttle = document.createElement("div");
+      shuttle.classList.add("shuttle");
+      shuttle.classList.add("discovery");
+      target.appendChild(shuttle);
+      var animationEnd = function(e) {
+        if (e.animationName === 'shuttlefadeout') {
+          if (shuttle.parentElement) shuttle.parentElement.removeChild(shuttle);
+        }
+      };
+      shuttle.addEventListener('animationend', animationEnd);
+      shuttle.addEventListener('webkitAnimationEnd', animationEnd);
+    })
+  });
 
   var useRealForm = false;
   if (useRealForm) {
@@ -3303,8 +3604,6 @@ function printShareLinks(target, now) {
       callIos("share");
     };
     msgDiv.appendChild(button);
-    msgDiv.appendChild(document.createElement("br")); // insert our own paragraph break, to match <ul>
-    msgDiv.appendChild(document.createElement("br"));
     target.appendChild(msgDiv);
     return;
   }
@@ -3388,7 +3687,7 @@ function printShareLinks(target, now) {
   msgDiv.innerHTML = nowMsg + "<ul id='sharelist'>\n"+
     mobileMesg+
     shareLinkText+
-    "</ul><br>\n"; // just one line break; <ul> provides its own
+    "</ul>\n";
   target.appendChild(msgDiv);
 }
 
@@ -3403,6 +3702,7 @@ function shareAction(e) {
     printButton("Next", target, false, function () {
       clearScreen(loadAndRestoreGame);
     });
+    curl();
   });
 }
 
@@ -3411,6 +3711,7 @@ function isReviewSupported() {
 }
 
 function isFollowEnabled() {
+  return false;
   if (!window.isWeb) return false;
   // iOS add to homescreen seems not to like these iframes
   if (window.navigator.standalone) return false;
@@ -3440,6 +3741,7 @@ function subscribeLink(e) {
     subscribe(document.getElementById('text'), {now:1}, function() {
       clearScreen(loadAndRestoreGame);
     });
+    curl();
   });
 }
 
@@ -3511,6 +3813,7 @@ function subscribe(target, options, callback) {
                 safeCall(null, callback);
               });
             }
+            curl();
           });
         }
       };
@@ -3633,6 +3936,7 @@ function downloadLink(e) {
         }
       });
     }
+    curl();
   });
 }
 
@@ -3813,6 +4117,7 @@ function restorePurchases(product, callback) {
               target.innerHTML="<p>Restore completed. This product is not yet purchased. You may also sign in to Choiceofgames.com to restore purchases.</p>";
             }
             loginForm(document.getElementById('text'), /*optionality*/1, /*err*/null, webRestoreCallback);
+            curl();
           });
         }
       });
@@ -3846,7 +4151,15 @@ function restorePurchases(product, callback) {
         clearScreen(function() {
           var target = document.getElementById('text');
           target.innerHTML="<p>Please sign in to Choiceofgames.com to restore purchases.</p>";
+          if (window.steamRestore) {
+            window.steamRestoreCallback = function(response) {
+              window.steamRestoreCallback = null;
+              if (response) cacheKnownPurchases(response);
+              webRestoreCallback();
+            }
+          }
           loginForm(document.getElementById('text'), /*optional*/1, /*err*/null, webRestoreCallback);
+          curl();
         });
       }
     });
@@ -3992,6 +4305,7 @@ function purchase(product, callback) {
                     "support@choiceofgames.com for assistance.");
                   clearScreen(loadAndRestoreGame);
                 }
+                curl();
               }, "stripeToken", response.id, "product", fullProductName, "key", window.stripeKey);
             });
           }
@@ -4020,6 +4334,7 @@ function purchase(product, callback) {
           clearScreen(loadAndRestoreGame);
         }
       });
+      curl();
     });
   } else {
     safeTimeout(purchaseCallback, 0);
@@ -4046,7 +4361,7 @@ function printDiscount(product, fullYear, oneBasedMonthNumber, dayOfMonth, line,
     span.style.display = "none";
   }
 
-  text.appendChild(span);
+  document.getElementById('text').appendChild(span);
 }
 
 function rewriteDiscount(product, fullYear, oneBasedMonthNumber, dayOfMonth) {
@@ -4517,6 +4832,7 @@ function loginForm(target, optional, errorMessage, callback) {
           "<input type=email name=email id=email value='"+escapedEmail+"' style='font-size: 25px; width: 11em'></label>"+
           ((isWeb && window.facebookAppId)?"<label for=facebook><input type=radio name=choice value=facebook id=facebook > Sign in with Facebook.</label>":"")+
           ((isWeb && window.googleAppId)?"<label for=google><input type=radio name=choice value=google id=google > Sign in with Google.</label>":"")+
+          ((window.steamRestoreCallback)?"<label for=steam><input type=radio name=choice value=steam id=steam > Restore purchases from Steam.</label>":"")+
           "<label for=no class=lastChild><input type=radio name=choice value=no id=no > No, thanks.</label>"+
           "<p><label class=noBorder for=subscribe><input type=checkbox name=subscribe id=subscribe checked> "+
           "Email me when new games are available.</label></p>";
@@ -4582,6 +4898,9 @@ function loginForm(target, optional, errorMessage, callback) {
         var email = trim(form.email.value);
         var subscribe = form.subscribe.checked;
         var choice = getFormValue("choice");
+        if ("steam" == choice) {
+          window.open('https://www.choiceofgames.com/api/Steam/');
+        }
         if ("facebook" == choice) {
           if (!window.FB) return asyncAlert("Sorry, we weren't able to sign you in with Facebook. (Your network connection may be down.) Please try again later, or contact support@choiceofgames.com for assistance.");
           var loginParams = {scope:'email',return_scopes:true};
@@ -4651,12 +4970,13 @@ function loginForm(target, optional, errorMessage, callback) {
                   optional = subscribe ? optional_new_subscribe : optional_new_no_subscribe;
                 }
                 loginForm(document.getElementById("text"), optional, null, callback);
+                curl();
               });
             } else if ("no" == choice) {
               safeCall(null, function() {callback(false);});
             } else if ("new" == choice) {
               target.innerHTML = "";
-              window.scrollTo(0,0);
+              window.scrollTo(0,1);
               form = document.createElement("form");
               var escapedEmail = email.replace(/'/g, "&apos;");
               form.innerHTML = "<div id=message style='color:red; font-weight:bold'></div>"+
@@ -4678,7 +4998,7 @@ function loginForm(target, optional, errorMessage, callback) {
                 }
                 startLoading();
                 form.style.display = "none";
-                window.scrollTo(0,0);
+                window.scrollTo(0,1);
                 login(email, form.password.value, /*register*/true, subscribe, function(ok, response) {
                   doneLoading();
                   if (ok) {
@@ -4710,7 +5030,7 @@ function loginForm(target, optional, errorMessage, callback) {
             } else if ("passwordButton" == choice) {
               startLoading();
               form.style.display = "none";
-              window.scrollTo(0,0);
+              window.scrollTo(0,1);
               login(email, form.password.value, /*register*/false, form.subscribe.checked, function(ok, response) {
                 doneLoading();
                 form.style.display = "";
@@ -4734,7 +5054,7 @@ function loginForm(target, optional, errorMessage, callback) {
             } else if ("forgot" == choice) {
               startLoading();
               form.style.display = "none";
-              window.scrollTo(0,0);
+              window.scrollTo(0,1);
               forgotPassword(email, function(ok, response) {
                 doneLoading();
                 form.style.display = "";
@@ -4978,6 +5298,40 @@ function aboutClick() {
     window.location.href = document.getElementById("aboutLink").href;
 }
 
+function loadPreferences() {
+  if (initStore()) {
+    store.get("preferredZoom", function(ok, preferredZoom) {
+      if (ok && !isNaN(parseFloat(preferredZoom))) {
+        setZoomFactor(parseFloat(preferredZoom));
+      }
+    });
+    store.get("preferredBackground", function(ok, preferredBackground) {
+      if (!/^(sepia|black|white)$/.test(preferredBackground)) {
+        preferredBackground = "sepia";
+      }
+      if (preferredBackground === "black") {
+        document.body.classList.add("nightmode");
+      } else if (preferredBackground === "white") {
+        document.body.classList.add("whitemode");
+      }
+    });
+    store.get("preferredAnimation", function(ok, preferredAnimation) {
+      window.animateEnabled = parseFloat(preferredAnimation) !== 2;
+    });
+  } else {
+    window.animateEnabled = true;
+  }
+  if (typeof document.body.style.animationName === "undefined") {
+    if (typeof document.body.style.webkitAnimationName === "undefined") {
+      window.animateEnabled = false;
+    } else {
+      window.animationProperty = "webkitAnimationName";
+    }
+  } else {
+    window.animationProperty = "animationName";
+  }
+}
+
 window.onerror=function(msg, file, line, stack) {
     if (window.console) {
       window.console.error(msg);
@@ -5024,23 +5378,7 @@ window.onload=function() {
     window.main = document.getElementById("main");
     var head = document.getElementsByTagName("head")[0];
     window.nav.setStartingStatsClone(window.stats);
-    if (initStore()) {
-      store.get("preferredZoom", function(ok, preferredZoom) {
-        if (ok && !isNaN(parseFloat(preferredZoom))) {
-          setZoomFactor(parseFloat(preferredZoom));
-        }
-      });
-      store.get("preferredBackground", function(ok, preferredBackground) {
-        if (!/^(sepia|black|white)$/.test(preferredBackground)) {
-          preferredBackground = "sepia";
-        }
-        if (preferredBackground === "black") {
-          document.body.classList.add("nightmode");
-        } else if (preferredBackground === "white") {
-          document.body.classList.add("whitemode");
-        }
-      });
-    }
+    loadPreferences();
     if (window.achievements && window.achievements.length) {
       nav.loadAchievements(window.achievements);
       checkAchievements(function() {});
@@ -5082,7 +5420,7 @@ window.onload=function() {
         }
         startupScene.execute();
       } else if (map.textOptionsMenu) {
-        textOptionsMenu();
+        textOptionsMenu({size:1, color:1, animation:1});
       } else {
         safeCall(null, loadAndRestoreGame);
       }
@@ -5111,23 +5449,10 @@ window.onload=function() {
         }
     }
     if (window.isCef || window.isNode || window.isMacApp) {
-      var buttons = document.getElementById("buttons");
-      buttons.appendChild(document.createTextNode(" "));
-      var menuButton = document.createElement("button");
-      menuButton.id = "menuButton";
-      setClass(menuButton, "spacedLink");
-      menuButton.onclick = showMenu;
-      menuButton.innerHTML = "Menu";
-      buttons.appendChild(menuButton);
-    } else if (window.isWeb) {
-      var buttons = document.getElementById("buttons");
-      buttons.appendChild(document.createTextNode(" "));
-      var menuButton = document.createElement("button");
-      menuButton.id = "menuButton";
-      setClass(menuButton, "spacedLink");
-      menuButton.onclick = textOptionsMenu;
-      menuButton.innerHTML = "Settings";
-      buttons.appendChild(menuButton);
+      var menuButton = document.getElementById("menuButton");
+      if (menuButton) {
+        menuButton.innerHTML = "Menu";
+      }
     }
     if (window.isWinOldApp) {
         absolutizeAboutLink();
@@ -5295,32 +5620,27 @@ if (!('ontouchstart' in window)) {
     "body.nightmode .choice label:hover {background-color: #555;}\n"+
     "body.whitemode .choice label:hover {background-color: #ddd;}\n";
 }
-if (window.isChromeApp) {
-  var base = document.createElement('base');
-  base.setAttribute("target", "_blank");
-  document.head.appendChild(base);
-
-  document.addEventListener( "DOMContentLoaded", function() {
-    var aboutLink = document.getElementById("aboutLink");
-    aboutLink.addEventListener("click", function() {
-      if (chrome.app.window) {
-        event.preventDefault();
-        chrome.app.window.create("credits.html", {}, function(w) {
-          w.contentWindow.addEventListener( "DOMContentLoaded", function() {
-            var win = this;
-            var back = win.document.getElementById("back");
-            back.addEventListener("click", function(event) {
-              event.preventDefault();
-              win.close();
-            }, false);
-            var base = win.document.createElement('base');
-            base.setAttribute("target", "_blank");
-            win.document.head.appendChild(base);
-            win.document.documentElement.style.overflowY = "scroll";
+function fixChromeLinks() {
+  var aboutLink = document.getElementById("aboutLink");
+  aboutLink.addEventListener("click", function() {
+    if (chrome.app.window) {
+      event.preventDefault();
+      chrome.app.window.create("credits.html", {}, function(w) {
+        w.contentWindow.addEventListener( "DOMContentLoaded", function() {
+          var win = this;
+          var back = win.document.getElementById("back");
+          back.addEventListener("click", function(event) {
+            event.preventDefault();
+            win.close();
           }, false);
-        });
-      }
-    }, false);
+          var base = win.document.createElement('base');
+          base.setAttribute("target", "_blank");
+          win.document.head.appendChild(base);
+          win.document.documentElement.style.overflowY = "scroll";
+        }, false);
+      });
+    }
+  }, false);
 
     var statsButton = document.getElementById("statsButton");
     if (statsButton) {
@@ -5355,7 +5675,21 @@ if (window.isChromeApp) {
       event.preventDefault();
     }, false);
 
-  }, false );
+  var menuButton = document.getElementById("menuButton");
+  menuButton.onclick = undefined;
+  menuButton.addEventListener("click", function() {
+    textOptionsMenu();
+  }, false);
+}
+if (window.isChromeApp) {
+  var base = document.createElement('base');
+  base.setAttribute("target", "_blank");
+  document.head.appendChild(base);
+
+  document.addEventListener("DOMContentLoaded", fixChromeLinks);
+  setInterval(function() {
+    document.body.style.height = document.querySelector(".container").offsetHeight + "px";
+  }, 100);
 }
 if (window.isCef) {
   var pollPurchases = function() {
@@ -5508,13 +5842,16 @@ function reinjectNavigator() {
  */
 function Scene(name, stats, nav, options) {
     if (!name) name = "";
-    if (!stats) stats = {};
+    if (!stats) stats = {implicit_control_flow:false};
+    if (stats["implicit_control_flow"] === undefined) stats["implicit_control_flow"] = false;
     // the name of the scene
     this.name = name;
 
     // the permanent statistics and the temporary values
     this.stats = stats;
-    this.temps = {choice_reuse:"allow", choice_user_restored:false};
+    // implicit_control_flow controls whether goto is necessary to leave options (true means no)
+    // _choiceEnds stores the line numbers to jump to when choice #options end.
+    this.temps = {choice_reuse:"allow", choice_user_restored:false, _choiceEnds:{}};
 
     // the navigator determines which scene comes next
     this.nav = nav;
@@ -5561,6 +5898,8 @@ function Scene(name, stats, nav, options) {
 
     // where should we print text?
     this.target = null;
+
+    this.accumulatedParagraph = [];
 }
 
 Scene.prototype.reexecute = function reexecute() {
@@ -5589,28 +5928,23 @@ Scene.prototype.printLoop = function printLoop() {
         } else if (indent < this.indent) {
             this.dedent(indent);
         }
-        if (this.temps.fakeChoiceLines && this.temps.fakeChoiceLines[this.lineNum]) {
-          this.rollbackLineCoverage();
-          this.lineNum = this.temps.fakeChoiceEnd;
-          this.rollbackLineCoverage();
-          delete this.temps.fakeChoiceEnd;
-          delete this.temps.fakeChoiceLines;
-          continue;
+        // Ability to end a choice #option without goto is guarded by implicit_control_flow variable
+        if (this.temps._choiceEnds[this.lineNum] && 
+                (this.stats["implicit_control_flow"] || this.temps._fakeChoiceDepth > 0)) {
+            // Skip to the end of the choice if we hit the end of an #option
+            this.rollbackLineCoverage();
+            this.lineNum = this.temps._choiceEnds[this.lineNum];
+            this.rollbackLineCoverage();
+            if (this.temps._fakeChoiceDepth > 0) {
+                this.temps._fakeChoiceDepth--;
+            }
+            continue;
         }
         this.indent = indent;
+        if (/^\s*#/.test(line)) {
+            throw new Error(this.lineMsg() + "It is illegal to fall out of a *choice statement; you must *goto or *finish before the end of the indented block.");
+        }
         if (!this.runCommand(line)) {
-            if (/^\s*#/.test(line)) {
-                if (this.temps.fakeChoiceEnd) {
-                    this.rollbackLineCoverage();
-                    this.lineNum = this.temps.fakeChoiceEnd;
-                    this.rollbackLineCoverage();
-                    delete this.temps.fakeChoiceEnd;
-                    delete this.temps.fakeChoiceLines;
-                    continue;
-                } else {
-                    throw new Error(this.lineMsg() + "It is illegal to fall out of a *choice statement; you must *goto or *finish before the end of the indented block.");
-                }
-            }
             this.prevLine = "text";
             this.screenEmpty = false;
             this.printLine(line);
@@ -5630,13 +5964,12 @@ Scene.prototype.printLoop = function printLoop() {
 
 Scene.prototype.dedent = function dedent(newDent) {};
 
-Scene.prototype.printLine = function printLine(line, parent) {
+Scene.prototype.printLine = function printLine(line) {
     if (!line) return null;
     line = this.replaceVariables(line.replace(/^ */, ""));
-    if (!parent) parent = this.target;
-    printx(line, parent);
+    this.accumulatedParagraph.push(line);
     // insert extra space unless the line ends with hyphen or dash
-    if (!/[-\u2011-\u2014]$/.test(line)) printx(' ', parent);
+    if (!/([-\u2011-\u2014]|\[c\/\])$/.test(line)) this.accumulatedParagraph.push(' ');
 };
 
 Scene.prototype.replaceVariables = function (line) {
@@ -5744,12 +6077,8 @@ Scene.prototype.replaceVariables = function (line) {
 };
 
 Scene.prototype.paragraph = function paragraph() {
-    if (this.prevLine == "text") {
-        println("", this.target);
-        println("", this.target);
-    } else if (this.prevLine == "block") {
-      println("", this.target);
-    }
+    printParagraph(this.accumulatedParagraph.join(""));
+    this.accumulatedParagraph = [];
     this.prevLine = "empty";
 };
 
@@ -5991,7 +6320,7 @@ Scene.prototype.checkSum = function checkSum(crc) {
     if (this.temps.choice_crc != crc) {
       // The scene has changed; restart the scene
       var userRestored = this.temps.choice_user_restored || false;
-      this.temps = {choice_reuse:"allow", choice_user_restored:userRestored, choice_crc: crc};
+      this.temps = {choice_reuse:"allow", choice_user_restored:userRestored, choice_crc: crc, _choiceEnds:{}};
       this.lineNum = 0;
       this.indent = 0;
     }
@@ -6003,7 +6332,7 @@ Scene.prototype.checkSum = function checkSum(crc) {
 Scene.prototype.loadLines = function loadLines(str) {
     var crc = crc32(str);
     this.checkSum(crc);
-    this.lines = str.split('\n');
+    this.lines = str.split(/\r?\n/);
     this.parseLabels();
     this.loaded = true;
 };
@@ -6020,6 +6349,7 @@ Scene.prototype.execute = function execute() {
         return;
     }
     if (this.nav) this.nav.repairStats(stats);
+    if (!this.temps._choiceEnds) this.temps._choiceEnds = {};
     doneLoading();
     if (typeof this.targetLabel != "undefined") {
       var label = this.targetLabel.label.toLowerCase();
@@ -6172,21 +6502,23 @@ Scene.prototype.choice = function choice(data) {
       self.standardResolution(option);
     });
     this.finished = true;
-    if (this.fakeChoice) {
-      this.temps.fakeChoiceEnd = this.lineNum;
-      var fakeChoiceLines = {};
-      for (i = 0; i < options.length; i++) {
-        fakeChoiceLines[options[i].line-1] = 1;
+    if (this.temps._fakeChoiceDepth > 0 || this.stats["implicit_control_flow"]) {
+      if (!this.temps._choiceEnds) {
+        this.temps._choiceEnds = {};
       }
-      this.temps.fakeChoiceLines = fakeChoiceLines;
+      for (i = 0; i < options.length; i++) {
+        this.temps._choiceEnds[options[i].line-1] = this.lineNum;
+      }
     }
     this.lineNum = startLineNum;
 };
 
 Scene.prototype.fake_choice = function fake_choice(data) {
-    this.fakeChoice = true;
-    this.choice(data, true);
-    delete this.fakeChoice;
+    if (this.temps._fakeChoiceDepth === undefined) {
+        this.temps._fakeChoiceDepth = 0;
+    }
+    this.temps._fakeChoiceDepth++;
+    this.choice(data);
 };
 
 Scene.prototype.standardResolution = function(option) {
@@ -6209,6 +6541,16 @@ Scene.prototype.nextNonBlankLine = function nextNonBlankLine(includingThisOne) {
     }
     return line;
 };
+
+Scene.prototype.previousNonBlankLineNum = function previousNonBlankLineNum() {
+  var line;
+  var i = this.lineNum - 1;
+  while(isDefined(line = this.lines[i]) && !trim(line)) {
+    i--;
+  }
+  return i;
+};
+
 
 Scene.prototype.resetCheckedPurchases = function resetCheckedPurchases() {
   for (var temp in this.temps) {
@@ -6290,11 +6632,25 @@ Scene.prototype["goto"] = function scene_goto(line) {
     }
 };
 
-Scene.prototype.gosub = function scene_gosub(label) {
+Scene.prototype.gosub = function scene_gosub(data) {
+    var label = /\S+/.exec(data)[0];
+    var rest = data.substring(label.length+1);
+    var args = [];
+    var stack = this.tokenizeExpr(rest);
+    while (stack.length) {
+      args.push(this.evaluateValueToken(stack.shift(), stack));
+    }
     if (!this.temps.choice_substack) {
       this.temps.choice_substack = [];
     }
     this.temps.choice_substack.push({lineNum: this.lineNum, indent: this.indent});
+    // Works exactly the same as gosub_scene, putting args in this.temps.param.
+    // This means there's no notion of scope - param acts more like "registers" that
+    // get clobbered the next time a sub is called.
+    // This may be more intuitive to non-programmers than idea of scope?  Especially
+    // if temp normally doesn't follow scoping rules.  gosub_scene can serve this function anyway.
+    // The params can be retrieved and put in named temps with "params" command.
+    this.temps.param = args;
     this["goto"](label);
 };
 
@@ -6306,6 +6662,35 @@ Scene.prototype.gosub_scene = function scene_gosub_scene(data) {
     this.goto_scene(data);
 };
 
+Scene.prototype.params = function scene_params(data) {
+    // Name the parameters passed by gosub/gosub_scene.
+    // Rules should be the same as for "create."
+    // All parameters, even those not named, exposed as param_1, param_2 etc.
+    var words = /\w+/.exec(data);
+    var nextParamNum = 1;
+    this.temps.param_count = this.temps.param.length;
+    while (words) {
+        var varName = words[0];
+        this.validateVariable(varName);
+        if (this.temps.param.length < 1) {
+            throw new Error(this.lineMsg() + "No parameter passed for " + varName);
+        }
+        var paramVal = this.temps.param.shift();
+        this.temps[varName] = paramVal;
+        this.temps["param_" + nextParamNum] = paramVal;
+        nextParamNum++;
+        data = data.substring(varName.length+1);
+        words = /\w+/.exec(data);
+    }
+    // All remaining params are anonymous, but you still have to say "params"
+    // if you want any of them.
+    while (this.temps.param.length > 0) {
+        var paramVal = this.temps.param.shift();
+        this.temps["param_" + nextParamNum] = paramVal;
+        nextParamNum++;
+    }
+};
+
 Scene.prototype["return"] = function scene_return() {
     var stackFrame;
     if (this.temps.choice_substack && this.temps.choice_substack.length) {
@@ -6314,6 +6699,12 @@ Scene.prototype["return"] = function scene_return() {
       this.indent = stackFrame.indent;
     } else if (this.stats.choice_subscene_stack && this.stats.choice_subscene_stack.length) {
       stackFrame = this.stats.choice_subscene_stack.pop();
+      if (stackFrame.name == this.name) {
+        this.temps = stackFrame.temps;
+        this.lineNum = stackFrame.lineNum-1;
+        this.indent = stackFrame.indent;
+        return;
+      }
       this.finished = true;
       this.skipFooter = true;
       var scene = new Scene(stackFrame.name, this.stats, this.nav, {debugMode:this.debugMode, secondaryMode:this.secondaryMode, saveSlot:this.saveSlot});
@@ -6322,6 +6713,7 @@ Scene.prototype["return"] = function scene_return() {
       scene.prevLine = this.prevLine;
       scene.lineNum = stackFrame.lineNum;
       scene.indent = stackFrame.indent;
+      scene.accumulatedParagraph = this.accumulatedParagraph;
       scene.execute();
     } else if (!this.temps.choice_substack && !this.stats.choice_subscene_stack) {
       throw new Error(this.lineMsg() + "invalid return; gosub has not yet been called");
@@ -6400,26 +6792,36 @@ Scene.prototype.reset = function reset() {
 };
 
 Scene.prototype.parseGotoScene = function parseGotoScene(data) {
-  var sceneName, label;
+  var sceneName, label, param = [], stack;
+
   if (/[\[\{]/.test(data)) {
-    var stack = this.tokenizeExpr(data);
+    stack = this.tokenizeExpr(data);
     sceneName = this.evaluateReference(stack, {toLowerCase: false});
+    // Labels are required for arguments to avoid ambiguity
     if (stack.length) {
       label = this.evaluateReference(stack);
     }
-    if (stack.length) {
-      throw new Error(this.lineMsg() + "Invalid *goto_scene command; nothing should appear after the label " + label);
+    while (stack.length) {
+      // Arguments when treating gosub_scene like a function call
+      param.push(this.evaluateValueToken(stack.shift(), stack));
     }
   } else {
-    var words = data.split(/ /);
-    sceneName = words[0];
-    if (words.length > 2) {
-      throw new Error(this.lineMsg() + "Invalid *goto_scene command; nothing should appear after the label " + words[1]);
-    } else if (words.length == 2) {
-      label = words[1];
+    // scenes and labels can contain hyphens and other non-expression punctuation
+    // so we'll try to extract the first two words as the scene and label
+    var match = /(\S+)\s+(\S+)\s*(.*)/.exec(data);
+    if (match) {
+      sceneName = match[1];
+      label = match[2];
+      stack = this.tokenizeExpr(match[3]);
+      while (stack.length) {
+        // Arguments when treating gosub_scene like a function call
+        param.push(this.evaluateValueToken(stack.shift(), stack));
+      }
+    } else {
+      sceneName = data;
     }
   }
-  return {sceneName:sceneName, label:label};
+  return {sceneName:sceneName, label:label, param:param};
 };
 
 // *goto_scene foo
@@ -6427,12 +6829,26 @@ Scene.prototype.parseGotoScene = function parseGotoScene(data) {
 Scene.prototype.goto_scene = function gotoScene(data) {
     var result = this.parseGotoScene(data);
 
+    if (result.sceneName == this.name) {
+      if (typeof result.label === "undefined") {
+        this.lineNum = 0;
+      } else {
+        this["goto"](result.label);
+      }
+      this.temps = {choice_reuse:"allow", choice_user_restored:false, _choiceEnds:{}};
+      this.temps.param = result.param;
+      this.initialCommands = true;
+      return;
+    }
+
     this.finished = true;
     this.skipFooter = true;
     var scene = new Scene(result.sceneName, this.stats, this.nav, {debugMode:this.debugMode, secondaryMode:this.secondaryMode, saveSlot:this.saveSlot});
     scene.screenEmpty = this.screenEmpty;
     scene.prevLine = this.prevLine;
+    scene.accumulatedParagraph = this.accumulatedParagraph;
     if (typeof result.label != "undefined") scene.targetLabel = {label:result.label, origin:this.name, originLine:this.lineNum};
+    if (typeof result.param != "undefined") scene.temps.param = result.param;
     scene.execute();
 };
 
@@ -6562,9 +6978,9 @@ Scene.prototype.purchase = function purchase_button(data) {
       self.prevLine = "block";
       if (isRestorePurchasesSupported()) {
         self.prevLine = "text";
-        printx("If you've already purchased, click here to ", target);
-        printLink(target, "#", "restore purchases",
-          function() {
+        printLink(printParagraph("If you've already purchased, click here to "), "#", "restore purchases",
+          function(e) {
+            preventDefault(e);
             safeCall(self, function() {
                 restorePurchases(product, function(purchased) {
                   if (purchased) {
@@ -6589,6 +7005,7 @@ Scene.prototype.purchase = function purchase_button(data) {
 };
 
 Scene.prototype.purchase_discount = function purchase_discount(line) {
+  this.paragraph();
   var args = trim(String(line)).split(" ");
   if (args.length != 5) throw new Error(this.lineMsg() + "expected five arguments, saw "+args.length+": " + line);
   var product = args[0];
@@ -6663,7 +7080,7 @@ Scene.prototype.create = function create(line) {
     var token = stack[0];
     if (!/STRING|NUMBER|VAR/.test(token.name)) complexError();
     if ("VAR" == token.name && !/^true|false$/i.test(token.value)) complexError();
-    if ("STRING" == token.name && /\$!?!?{/.test(token.value)) throw new Error(this.lineMsg() + "Invalid create instruction, value must be a simple string without ${}: " + line);
+    if ("STRING" == token.name && /(\$|@)!?!?{/.test(token.value)) throw new Error(this.lineMsg() + "Invalid create instruction, value must be a simple string without ${} or @{}: " + line);
     var value = this.evaluateExpr(stack);
     this.stats[variable] = value;
     if (this.nav) this.nav.startingStats[variable] = value;
@@ -6720,8 +7137,9 @@ Scene.prototype.getVar = function getVar(variable) {
     if (variable == "choice_restore_purchases_allowed") return isRestorePurchasesSupported();
     if (variable == "choice_save_allowed") return areSaveSlotsSupported();
     if (variable == "choice_time_stamp") return Math.floor(new Date()/1000);
-    if ("undefined" === typeof this.temps[variable]) {
-        if ("undefined" === typeof this.stats[variable]) {
+    if (variable == "choice_nightmode") return typeof isNightMode != "undefined" && isNightMode();
+    if ((!this.temps.hasOwnProperty(variable))) {
+        if ((!this.stats.hasOwnProperty(variable))) {
             throw new Error(this.lineMsg() + "Non-existent variable '"+variable+"'");
         }
         value = this.stats[variable];
@@ -6749,6 +7167,11 @@ Scene.prototype.setVar = function setVar(variable, value) {
         }
         this.stats[variable] = value;
         if (this.saveSlot == "temp") tempStatWrites[variable] = value;
+        // Implicit control flow flag is ideally set just once in startup.
+        // Removing these lines makes this not possible with quicktest.
+        if (variable == "implicit_control_flow" && this.nav) {
+            this.nav.startingStats["implicit_control_flow"] = value;
+        }
     } else {
         this.temps[variable] = value;
     }
@@ -6776,6 +7199,7 @@ Scene.prototype.parseOptions = function parseOptions(startIndent, choicesRemaini
     // then the nextIndent is 4 for "spaceship"
     var nextIndent = null;
     var options = [];
+    var choiceEnds = [];
     var line;
     var currentChoice = choicesRemaining[0];
     if (!currentChoice) currentChoice = "choice";
@@ -6786,8 +7210,18 @@ Scene.prototype.parseOptions = function parseOptions(startIndent, choicesRemaini
     var atLeastOneSelectableOption = false;
     var prevOption, ifResult;
     var startingLine = this.lineNum;
-    function removeModifierCommand() {
-      line = trim(line.replace(/^\s*\*(\w+)(.*)/, "$2"));
+    var self = this;
+    function removeModifierCommand(stripParethentical) {
+      if (stripParethentical) {
+        var openParen = line.indexOf("(")+1;
+        var closingParen = matchBracket(line, "()", openParen);
+        if (closingParen == -1) {
+          throw new Error(self.lineMsg() + "missing closing parenthesis");
+        }
+        line = trim(line.substr(closingParen+1));
+      } else {
+        line = trim(line.replace(/^\s*\*(\w+)(.*)/, "$2"));
+      }
       parsed = /^\s*\*(\w+)(.*)/.exec(line);
       if (parsed) {
         command = parsed[1].toLowerCase();
@@ -6816,7 +7250,8 @@ Scene.prototype.parseOptions = function parseOptions(startIndent, choicesRemaini
             if (choicesRemaining.length>1 && !suboptionsEncountered) {
                 throw new Error(this.lineMsg() + "invalid indent, there were subchoices remaining: [" + choicesRemaining.join(",") + "]");
             }
-            if (bodyExpected && !this.fakeChoice) {
+            if (bodyExpected && 
+                    (this.temps._fakeChoiceDepth === undefined || this.temps._fakeChoiceDepth < 1)) {
                 throw new Error(this.lineMsg() + "Expected choice body");
             }
             if (!atLeastOneSelectableOption) this.conflictingOptions("line " + (startingLine+1) + ": No selectable options");
@@ -6825,8 +7260,11 @@ Scene.prototype.parseOptions = function parseOptions(startIndent, choicesRemaini
             }
             this.rollbackLineCoverage();
             prevOption = options[options.length-1];
-            if (!prevOption.endLine) prevOption.endLine = this.lineNum;
-            this.lineNum--;
+            this.lineNum = this.previousNonBlankLineNum();
+            if (!prevOption.endLine) prevOption.endLine = this.lineNum+1;
+            for (i = 0; i < choiceEnds.length; i++) {
+                this.temps._choiceEnds[choiceEnds[i]] = this.lineNum;
+            }
             this.rollbackLineCoverage();
             return options;
         }
@@ -6896,6 +7334,7 @@ Scene.prototype.parseOptions = function parseOptions(startIndent, choicesRemaini
             } else if ("if" == command) {
               ifResult = this.parseOptionIf(data, command);
               if (ifResult) {
+                choiceEnds.push(this.lineNum);
                 inlineIf = ifResult.condition;
                 if (ifResult.result) {
                   line = ifResult.line;
@@ -6979,7 +7418,8 @@ Scene.prototype.parseOptions = function parseOptions(startIndent, choicesRemaini
         }
         if (!unselectable) atLeastOneSelectableOption = true;
     }
-    if (bodyExpected && !this.fakeChoice) {
+    if (bodyExpected && 
+            (this.temps._fakeChoiceDepth === undefined || this.temps._fakeChoiceDepth < 1)) {
         throw new Error(this.lineMsg() + "Expected choice body");
     }
     prevOption = options[options.length-1];
@@ -7079,12 +7519,20 @@ Scene.prototype.page_break = function page_break(buttonName) {
 // *line_break
 // single line break in the middle of a paragraph
 Scene.prototype.line_break = function line_break() {
-    println("", this.target);
+    // We want to prevent a huge <p><br></p> between blocks
+    // so if there's existing text we'll just toss in a [n/]
+    // and if there's no text yet, we'll directly insert a <br>
+    if (this.accumulatedParagraph.length) {
+      this.accumulatedParagraph.push('[n/]');
+    } else {
+      println();
+    }
 };
 
 // *image
 // display named image //CJW edited to compensate for data uri images
 Scene.prototype.image = function image(data, invert) {
+    this.paragraph();
     data = data || "";
     data = this.replaceVariables(data);
     var args = data.split(" ");
@@ -7102,6 +7550,7 @@ Scene.prototype.image = function image(data, invert) {
     else {
       var source = data;
     }
+    if (source === "") throw new Error(this.lineMsg()+"*image requires the file name of an image");
     alignment = alignment || "center";
     if (!/(right|left|center|none)/.test(alignment)) throw new Error(this.lineMsg()+"Invalid alignment, expected right, left, center, or none: " + data);
     printImage(source, alignment, alt, invert);
@@ -7134,9 +7583,9 @@ Scene.prototype.youtube = function youtube(slug) {
 Scene.prototype.link = function link(data) {
     var result = /^(\S+)\s*(.*)/.exec(data);
     if (!result) throw new Error(this.lineMsg() + "invalid line; this line should have an URL: " + data);
-    var href = result[1];
+    var href = result[1].replace(/\]/g, "%5D");
     var anchorText = trim(result[2]) || href;
-    printLink(this.target, href, anchorText);
+    this.printLine("[url="+href+"]"+anchorText+"[/url]");
     this.prevLine = "text";
     this.screenEmpty = false;
 };
@@ -7549,7 +7998,13 @@ Scene.prototype.ending = function ending() {
       printFollowButtons();
       self.renderOptions([""], options, function(option) {
         if (option.restart) {
-          self.restart();
+          clearScreen(function() {
+            self.restart();
+            if (self.name === "startup") {
+              self.finished = false;
+              self.resetPage();
+            }
+          });
           return;
         } else if (option.moreGames) {
           self.more_games("now");
@@ -7569,15 +8024,17 @@ Scene.prototype.ending = function ending() {
 };
 
 Scene.prototype.restart = function restart() {
-  if (this.secondaryMode) throw new Error(this.lineMsg() + "Cannot *restart in " + this.secondaryMode + " mode");
-  this.finished = true;
+  if (this.secondaryMode && this.secondaryMode != "stats") {
+    throw new Error(this.lineMsg() + "Cannot *restart in " + this.secondaryMode + " mode");
+  }
   delayBreakEnd();
-  var self = this;
-  self.reset();
-  var startupScene = self.nav.getStartupScene();
-  var scene = new Scene(startupScene, self.stats, self.nav, {debugMode:self.debugMode, secondaryMode:false});
-  scene.resetPage();
-
+  this.reset();
+  var startupScene = this.nav.getStartupScene();
+  if (this.secondaryMode == "stats") {
+    this.redirect_scene(startupScene);
+  } else {
+    this.goto_scene(startupScene);
+  }
 };
 
 /* Subscribe options, in JSON format.
@@ -7592,6 +8049,7 @@ Only Coming Soon pages use "allowContinue"
 "message" is the message we'll show to justify subscribing
 the default message is: "we'll notify you when our next game is ready!" */
 Scene.prototype.subscribe = function scene_subscribe(data) {
+  this.paragraph();
   var options = {};
   if (data) {
     try {
@@ -7649,6 +8107,7 @@ Scene.prototype.restore_game = function restore_game(data) {
         clearScreen(function() {
           fetchEmail(function(defaultEmail){
             self.printLine("Please type your email address to identify yourself.");
+            self.paragraph();
             promptEmailAddress(this.target, defaultEmail, "allowContinue", function(cancel, email) {
               if (cancel) {
                 self.finished = false;
@@ -7680,6 +8139,7 @@ Scene.prototype.restore_game = function restore_game(data) {
         clearScreen(function() {
           fetchEmail(function(defaultEmail){
             self.printLine("Please type your email address to identify yourself.");
+            self.paragraph();
             promptEmailAddress(this.target, defaultEmail, "allowContinue", function(cancel, email) {
               if (cancel) {
                 self.finished = false;
@@ -8277,11 +8737,10 @@ Scene.prototype.deobfuscatePassword = function deobfuscatePassword(password) {
 };
 
 Scene.prototype.stat_chart = function stat_chart() {
+  this.paragraph();
   var rows = this.parseStatChart();
   var target = this.target;
   if (!target) target = document.getElementById('text');
-
-  if (this.prevLine == "text") println("", target);
 
   var barWidth = 0;
   var standardFontSize = 0;
@@ -8403,7 +8862,7 @@ Scene.prototype.parseStatChart = function parseStatChart() {
         if (indent <= startIndent) {
             // it's over!
             this.rollbackLineCoverage();
-            this.lineNum--;
+            this.lineNum = this.previousNonBlankLineNum();
             this.rollbackLineCoverage();
             return rows;
         }
@@ -8572,6 +9031,10 @@ Scene.prototype.delay_break = function(durationInSeconds) {
 
 // *delay_ending 1200 $2.99 $0.99
 Scene.prototype.delay_ending = function(data) {
+  // Steam doesn't do delay breaks and especially not skiponce
+  if (typeof window != "undefined" && !!window.isSteamApp) {
+    return this.ending();
+  }
   var args = data.split(/ /);
   var durationInSeconds = args[0];
   var fullPriceGuess = args[1];
@@ -8700,15 +9163,6 @@ Scene.prototype["if"] = function scene_if(line) {
 
 // TODO Rename this function to just skipBranch
 Scene.prototype.skipTrueBranch = function skipTrueBranch(inElse) {
-  var self = this;
-  function prevNonBlankLine() {
-    var line;
-    var i = self.lineNum - 1;
-    while(isDefined(line = self.lines[i]) && !trim(line)) {
-      i--;
-    }
-    return i;
-  }
   var startIndent = this.indent;
   var nextIndent = null;
   while (isDefined(line = this.lines[++this.lineNum])) {
@@ -8725,7 +9179,7 @@ Scene.prototype.skipTrueBranch = function skipTrueBranch(inElse) {
           // check to see if this is an *else or *elseif
           if (indent == startIndent) parsed = /^\s*\*(\w+)(.*)/.exec(line);
           if (!parsed || inElse) {
-              this.lineNum = prevNonBlankLine();
+              this.lineNum = this.previousNonBlankLineNum();
               this.rollbackLineCoverage();
               this.indent = indent;
               return;
@@ -8746,7 +9200,7 @@ Scene.prototype.skipTrueBranch = function skipTrueBranch(inElse) {
               this.lineNum = this.lineNum; // code coverage
               this["if"](data);
           } else {
-              this.lineNum = prevNonBlankLine();
+              this.lineNum = this.previousNonBlankLineNum();
               this.rollbackLineCoverage();
               this.indent = this.getIndent(this.nextNonBlankLine());
           }
@@ -8762,7 +9216,9 @@ Scene.prototype.skipTrueBranch = function skipTrueBranch(inElse) {
 };
 
 Scene.prototype["else"] = Scene.prototype.elsif = Scene.prototype.elseif = function scene_else(data, inChoice) {
-    if (inChoice) {
+    // Authors can avoid using goto to get out of an if branch with:  *set implicit_control_flow true
+    // This avoids the error message at the end of the function.
+    if (inChoice || this.stats["implicit_control_flow"]) {
       this.skipTrueBranch(true);
       return;
     }
@@ -8784,12 +9240,15 @@ Scene.prototype.tokenizeExpr = function tokenizeExpr(str) {
                 matched = true;
                 str = str.substr(token.length);
                 pos += token.length;
+                var item = {name:tokenType.name, value:token, pos:pos};
                 if ("WHITESPACE" == tokenType.name) {
                     break;
                 } else if ("CURLY_QUOTE" == tokenType.name) {
                   throw new Error(this.lineMsg()+"Invalid use of curly smart quote: " + token + "\nUse straight quotes \" instead")
+                } else if ("FUNCTION" == tokenType.name) {
+                  item.func = /^\w+/.exec(token)[0];
                 }
-                stack.push({name:tokenType.name, value:token, pos:pos});
+                stack.push(item);
                 break;
             }
         }
@@ -8818,7 +9277,7 @@ Scene.prototype.evaluateExpr = function evaluateExpr(stack, parenthetical) {
 
     if (!stack.length) {
         if (parenthetical) {
-            throw new Error(this.lineMsg() + "Invalid expression, expected final closing parenthesis");
+            throw new Error(this.lineMsg() + "Invalid expression, expected " + parenthetical);
         }
         return value1;
     }
@@ -8831,14 +9290,22 @@ Scene.prototype.evaluateExpr = function evaluateExpr(stack, parenthetical) {
 
     // Since this isn't a singleton, it must be an operator
     operator = Scene.operators[token.value];
-    if (!operator) throw new Error(this.lineMsg() + "Invalid expression at char "+token.pos+", expected OPERATOR, was: " + token.name + " [" + token.value + "]");
+    if (!operator) {
+      throw new Error(this.lineMsg() + "Invalid expression at char "+token.pos+", expected OPERATOR"+
+        (parenthetical?" or " + parenthetical : "")+
+        ", was: " + token.name + " [" + token.value + "]");
+    }
 
     if (token.value === '%') {
       this.warning("this is a bare % sign, which should be replaced with %+, %-, or modulo if you're really advanced.");
       this.warning("For more details on modulo, see: https://forum.choiceofgames.com/t/21176");
     }
 
-    value2 = this.evaluateValueToken(getToken(), stack);
+    if (stack[0].func == "auto") {
+      value2 = this.autobalance(stack, token, value1);
+    } else {
+      value2 = this.evaluateValueToken(getToken(), stack);
+    }
 
     // and do the operator
     result = operator(value1, value2, this.lineNum+1, this);
@@ -8850,10 +9317,10 @@ Scene.prototype.evaluateExpr = function evaluateExpr(stack, parenthetical) {
             if (parenthetical == token.name) {
                 return result;
             } else {
-                throw new Error(this.lineMsg() + "Invalid expression at char "+token.pos+", expected closing parenthesis, was: " + token.name + " [" + token.value + "]");
+                throw new Error(this.lineMsg() + "Invalid expression at char "+token.pos+", expected "+parenthetical+", was: " + token.name + " [" + token.value + "]");
             }
         } else {
-            throw new Error(this.lineMsg() + "Invalid expression, expected final closing parenthesis");
+            throw new Error(this.lineMsg() + "Invalid expression, expected " + parenthetical);
         }
     } else {
         // if not parenthetical, expect no more tokens
@@ -8878,10 +9345,9 @@ Scene.prototype.evaluateValueToken = function evaluateValueToken(token, stack) {
         value = this.evaluateExpr(stack, "CLOSE_CURLY");
         return this.getVar(value);
     } else if ("FUNCTION" == name) {
-        var functionName = /^\w+/.exec(token.value)[0];
-        if (!this.functions[functionName]) throw new Error(this.lineMsg + "Unknown function " + functionName);
+        if (!this.functions[token.func]) throw new Error(this.lineMsg + "Unknown function " + token.func);
         value = this.evaluateExpr(stack, "CLOSE_PARENTHESIS");
-        return this.functions[functionName].call(this, value);
+        return this.functions[token.func].call(this, value);
     } else if ("NUMBER" == name) {
         return token.value;
     } else if ("STRING" == name) {
@@ -8976,8 +9442,42 @@ Scene.prototype.functions = {
   },
   length: function(value) {
     return String(value).length;
+  },
+  auto: function() {
+    throw new Error(this.lineMsg()+"Invalid expression, auto() must come after a < or > symbol");
   }
 };
+
+Scene.prototype.autobalance = function autobalance(stack, operatorToken, value) {
+  if (operatorToken.name !== "INEQUALITY") {
+    throw new Error(this.lineMsg()+"Invalid expression, auto() must come after a < or > symbol");
+  }
+  stack.shift(); // remove auto function
+
+  if (stack.length < 4 ||
+    stack[0].name !== "NUMBER" ||
+    stack[1].name !== "COMMA" ||
+    !(stack[2].name == "VAR" || stack[2].name == "NUMBER") ||
+    stack[3].name !== "CLOSE_PARENTHESIS"
+  ) {
+    throw new Error(this.lineMsg()+"Invalid expression, auto() requires (percentage, id)");
+  }
+  var rateString = stack.shift().value;
+  var rate = parseFloat(rateString);
+  if (isNaN(rate) || rate < 1 || rate > 99) {
+    throw new Error(this.lineMsg()+"the first auto() parameter should be a number between 1 and 99: " + rateString);
+  }
+  stack.shift(); // comma
+  var id = stack.shift().value;
+  stack.shift(); // close parenthesis
+  var result = this.stats['auto' + '_' + this.name + '_' + id];
+  if (typeof result != "undefined") {
+    return result;
+  } else if (this.recordBalance) {
+    return this.recordBalance(value, operatorToken.value, rate, id);
+  }
+  return 50;
+}
 
 Scene.prototype.evaluateValueExpr = function evaluateValueExpr(expr) {
     var stack = this.tokenizeExpr(expr);
@@ -9268,6 +9768,7 @@ Scene.prototype.achievement = function scene_achievement(data) {
   }
   var title = parsed[4];
   if (/(\$\{)/.test(title)) throw new Error(this.lineMsg()+"Invalid *achievement. ${} not permitted in achievement title: " + title);
+  if (/(\@\{)/.test(title)) throw new Error(this.lineMsg()+"Invalid *achievement. @{} not permitted in achievement title: " + title);
   if (/(\[)/.test(title)) throw new Error(this.lineMsg()+"Invalid *achievement. [] not permitted in achievement title: " + title);
   if (title.length > 50) throw new Error(this.lineMsg()+"Invalid *achievement. Title must be 50 characters or fewer: " + title);
 
@@ -9279,6 +9780,7 @@ Scene.prototype.achievement = function scene_achievement(data) {
   }
   var preEarnedDescription = trim(line);
   if (/(\$\{)/.test(preEarnedDescription)) throw new Error(this.lineMsg()+"Invalid *achievement. ${} not permitted in achievement description: " + preEarnedDescription);
+  if (/(\@\{)/.test(preEarnedDescription)) throw new Error(this.lineMsg()+"Invalid *achievement. @{} not permitted in achievement description: " + preEarnedDescription);
   if (/(\[)/.test(preEarnedDescription)) throw new Error(this.lineMsg()+"Invalid *achievement. [] not permitted in achievement description: " + preEarnedDescription);
   if (preEarnedDescription.length > 200) throw new Error(this.lineMsg()+"Invalid *achievement. Pre-earned description must be 200 characters or fewer: " + preEarnedDescription);
 
@@ -9296,6 +9798,7 @@ Scene.prototype.achievement = function scene_achievement(data) {
   if (indent) {
     postEarnedDescription = trim(line);
     if (/(\$\{)/.test(postEarnedDescription)) throw new Error(this.lineMsg()+"Invalid *achievement. ${} not permitted in achievement description: " + postEarnedDescription);
+    if (/(\@\{)/.test(postEarnedDescription)) throw new Error(this.lineMsg()+"Invalid *achievement. @{} not permitted in achievement description: " + postEarnedDescription);
     if (/(\[)/.test(postEarnedDescription)) throw new Error(this.lineMsg()+"Invalid *achievement. [] not permitted in achievement description: " + postEarnedDescription);
     if (postEarnedDescription.length > 200) throw new Error(this.lineMsg()+"Invalid *achievement. Post-earned description must be 200 characters or fewer: " + postEarnedDescription);
   } else {
@@ -9354,7 +9857,7 @@ Scene.prototype.warning = function scene_warning(message) {
 Scene.prototype.feedback = function scene_feedback() {
   if (typeof window == "undefined" || this.randomtest) return;
   this.paragraph();
-  this.printLine("On a scale from 1 to 10, how likely are you to recommend this game to a friend?[n/][n/]");
+  this.printLine("On a scale from 1 to 10, how likely are you to recommend this game to a friend?");
   this.paragraph();
   var options = [{name:"10 (Most likely)"}];
   for (var i = 9; i > 1; i--) {
@@ -9426,7 +9929,7 @@ Scene.tokens = [
     {name:"CLOSE_CURLY", test:function(str){ return Scene.regexpMatch(str,/^\}/); } },
     {name:"OPEN_SQUARE", test:function(str){ return Scene.regexpMatch(str,/^\[/); } },
     {name:"CLOSE_SQUARE", test:function(str){ return Scene.regexpMatch(str,/^\]/); } },
-    {name:"FUNCTION", test:function(str){ return Scene.regexpMatch(str,/^(not|round|timestamp|log|length)\s*\(/); } },
+    {name:"FUNCTION", test:function(str){ return Scene.regexpMatch(str,/^(not|round|timestamp|log|length|auto)\s*\(/); } },
     {name:"NUMBER", test:function(str){ return Scene.regexpMatch(str,/^\d+(\.\d+)?\b/); } },
     {name:"STRING", test:function(str, line) {
             var i;
@@ -9449,14 +9952,19 @@ Scene.tokens = [
     {name:"FAIRMATH", test:function(str){ return Scene.regexpMatch(str,/^%[\+\-]/); } },
     {name:"OPERATOR", test:function(str){ return Scene.regexpMatch(str,/^[\+\-\*\/\&\%\^\#]/); } },
     {name:"INEQUALITY", test:function(str){ return Scene.regexpMatch(str,/^[\!<>]\=?/); } },
-    {name:"EQUALITY", test:function(str){ return Scene.regexpMatch(str,/^=/); } }
+    {name:"EQUALITY", test:function(str){ return Scene.regexpMatch(str,/^=/); } },
+    {name:"COMMA", test:function(str){ return Scene.regexpMatch(str,/^,/); } }
     //
 ];
 Scene.operators = {
     "+": function add(v1,v2,line) { return num(v1,line) + num(v2,line); },
     "-": function subtract(v1,v2,line) { return num(v1,line) - num(v2,line); },
     "*": function multiply(v1,v2,line) { return num(v1,line) * num(v2,line); },
-    "/": function divide(v1,v2,line) { return num(v1,line) / num(v2,line); },
+    "/": function divide(v1,v2,line) {
+      v2 = num(v2, line);
+      if (v2 === 0) throw new Error("line "+line+": can't divide by zero");
+      return num(v1,line) / num(v2,line);
+    },
     "%": function modulo(v1,v2,line) { return num(v1,line) % num(v2,line); },
     "^": function exponent(v1,v2,line) { return Math.pow(num(v1,line), num(v2,line)); },
     "&": function concatenate(v1,v2) { return [v1,v2].join(""); },
@@ -9526,7 +10034,7 @@ Scene.validCommands = {"comment":1, "goto":1, "gotoref":1, "label":1, "looplimit
     "restart":1,"more_games":1,"delay_ending":1,"end_trial":1,"login":1,"achieve":1,"scene_list":1,"title":1,
     "bug":1,"link_button":1,"check_registration":1,"sound":1,"author":1,"gosub_scene":1,"achievement":1,
     "check_achievements":1,"redirect_scene":1,"print_discount":1,"purchase_discount":1,"track_event":1,
-    "timer":1,"youtube":1,"product":1,"text_image":1
+    "timer":1,"youtube":1,"product":1,"text_image":1,"params":1
     };
 /*
  * Copyright 2010 by Dan Fabulich.
@@ -9548,7 +10056,7 @@ Scene.validCommands = {"comment":1, "goto":1, "gotoref":1, "label":1, "looplimit
  */
 function SceneNavigator(sceneList) {
     this.setSceneList(sceneList);
-    this.startingStats = {};
+    this.startingStats = {implicit_control_flow:false};
 }
 
 SceneNavigator.prototype.setSceneList = function setSceneList(sceneList) {
@@ -9642,18 +10150,22 @@ nav = new SceneNavigator(["startup"]);
 stats = {};
 
 </script><style>body {
+  position: relative;
   max-width: 680px;
+  min-height: 100vh; /* keep iOS address bar from popping in and out */
   _width:expression(this.scrollWidth > 680 ? "680px" : "auto");
   font-size: 100%;  /* reset for CWS */
   font: -apple-system-body; /* we'll override the font, but keep the size from iOS dynamic text sizing */
   font-family: Georgia,"Times New Roman",serif;
   background-color: #F7F4F1;
   color: rgba(0, 0, 0, 0.85);
-  margin: 8px auto; 
-  padding: 0 8px;
+  margin: 8px auto;
+  padding: 0;
   -webkit-user-select: text; /* selectable text for Chrome app support */
   transition-property: background-color, color;
   transition-duration: 2s;
+  -webkit-transition-property: background-color, color;
+  -webkit-transition-duration: 2s;
 }
 
 a {
@@ -9665,6 +10177,56 @@ a {
 
 #main {
 	line-height: 1.5;
+}
+
+.container {
+  position: absolute; /* so containers can overlap */
+  left: 0;
+  right: 0;
+  margin: 0 8px;
+  animation-duration: 0.5s;
+  -webkit-animation-duration: 0.5s;
+  transition-property: opacity;
+  transition-duration: 0.5s;
+  transition-timing-function: ease-in;
+  -webkit-transition-property: opacity;
+  -webkit-transition-duration: 0.5s;
+  -webkit-transition-timing-function: ease-in;
+}
+
+@keyframes containerslidein {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+@-webkit-keyframes containerslidein {
+  from {
+    -webkit-transform: translateX(100%);
+  }
+
+  to {
+    -webkit-transform: none;
+  }
+}
+
+.tempfocus:focus {
+  outline: none;
+}
+
+#loading {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+}
+
+.frozen {
+  overflow-x: hidden;
+  pointer-events: none;
 }
 
 #text img {
@@ -9711,11 +10273,76 @@ table {
 }
 
 .choice label{
+    position: relative; /* so the .shuttle can be positioned absolutely within it */
+    transition-property: background-color, color;
+    transition-duration: 0.1s;
+    -webkit-transition-property: background-color, color;
+    -webkit-transition-duration: 0.1s;
+    -webkit-tap-highlight-color: transparent;
     padding: 11px 8px 12px;
     display:block;
     border-color:#a9acaf;
     border-style:solid;
     border-width: 1px 1px 0px 1px
+}
+
+.shuttle {
+  position: absolute;
+  right: 0px;
+  top: 0px;
+  width: 20%;
+  height: 100%;
+  background-color: #626160; /* match next */
+  opacity: 0.25;
+  transition-property: opacity;
+  transition-duration: 0.3s;
+  -webkit-transition-property: opacity;
+  -webkit-transition-duration: 0.3s;
+}
+
+.shuttle.discovery {
+  width: 20%;
+  animation-name: shuttlefadein, shuttleslide, shuttlefadeout;
+  animation-duration: 0.75s, 1s, 1s;
+  animation-delay: 0s, 0.75s, 1.75s;
+  -webkit-animation-name: shuttlefadein, shuttleslide, shuttlefadeout;
+  -webkit-animation-duration: 0.75s, 1s, 1s;
+  -webkit-animation-delay: 0s, 0.75s, 1.75s;
+}
+
+@keyframes shuttlefadein {
+  from {opacity: 0;}
+  to {opacity: 0.25;}
+}
+
+@keyframes shuttlefadeout {
+  from {opacity: 0.25; transform: translateX(-403%);} /* borders, maybe? */
+  to {opacity: 0; transform: translateX(-403%);}
+}
+
+@keyframes shuttleslide {
+  from { opacity: 0.25; transform: translateX(0);}
+  to { opacity: 0.25; transform: translateX(-403%); }
+}
+
+@-webkit-keyframes shuttlefadein {
+  from {opacity: 0;}
+  to {opacity: 0.25;}
+}
+
+@-webkit-keyframes shuttlefadeout {
+  from {opacity: 0.25; -webkit-transform: translateX(-403%);} /* borders, maybe? */
+  to {opacity: 0; -webkit-transform: translateX(-403%);}
+}
+
+@-webkit-keyframes shuttleslide {
+  from { opacity: 0.25; -webkit-transform: translateX(0);}
+  to { opacity: 0.25; -webkit-transform: translateX(-403%); }
+}
+
+.selected {
+  color: rgba(255,255,255,0.85);
+  background-color: #007AFF;
 }
 
 .choice .firstChild{
@@ -9774,7 +10401,7 @@ input[type=email],input[type=password] {
     font-size:1.5em;
     font-weight:bolder;
     font-family: -apple-system, sans-serif; /* reset, for Android */
-    margin-bottom: 1em; /* reset button margin */
+    margin-bottom: 1rem; /* reset button margin */
     -webkit-appearance: none; /* Safari, don't override my CSS styles */
     color: #f7f4f1; /* Match background color */ 
     background-color: #626160;
@@ -9921,6 +10548,10 @@ body.nightmode a {
 
 body.nightmode .next {
   color: #242424; /* Match background color */
+  background-color: #D9D9D9;
+}
+
+body.nightmode .shuttle {
   background-color: #D9D9D9;
 }
 

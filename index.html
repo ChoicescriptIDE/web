@@ -7,6 +7,7 @@
 	<meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 
 	<link rel="stylesheet" href="css/all.min.css" type="text/css">
+  <style id="user-theme"></style>  
 
 	<!-- FONT AWESOME -->
 	<link rel="stylesheet" href="lib/font-awesome/css/font-awesome.min.css" type="text/css">
@@ -153,6 +154,7 @@
 								<span class="fa fa-terminal"></span>
 								<span class="console-indicator" data-bind="fadeVisible: getSelectedProject().getUnreadLogCount(), text: getSelectedProject().getUnreadLogCount()" ></span>
 							</button>
+              <span data-bind="fadeVisible: wordCountOn()"><span data-bind="text: getSelectedScene().getCursorString()"></span></span>
 							<span data-bind="fadeVisible: wordCountOn()">Char Count: <span data-bind="text: getSelectedScene().getCharCountString()"></span></span>
 							<span data-bind="fadeVisible: wordCountOn()">Word Count: <span data-bind="text: getSelectedScene().getWordCountString()"></span></span>
 						</div>
@@ -172,15 +174,15 @@
 						<i class="fa fa-arrows-h fa-lg"></i>
 					</button>
 					<div id="tabs" data-bind="tabs: { refreshOn: tabs }">
-						<ul data-bind="style: { backgroundColor: getUIColour(-10) }, sortable: { data: tabs, allowDrop: false, connectClass: 'null', afterMove: cside.updatePersistenceList, options: { axis: 'x', items: 'li', containment: 'parent' } }" class="col-anim">
+						<ul data-bind="style: { backgroundColor: getUIColour(-10) }, sortable: { data: tabs, allowDrop: false, connectClass: 'null', afterMove: cside.updatePersistenceList, options: { axis: 'y', items: 'li', containment: 'parent' } }" class="col-anim">
 							<li data-bind="attr: { 'aria-controls': id, title: title }, visible: visible, style: { backgroundColor: $root.getUIColour(-15) }">
 								<a draggable="false" data-bind="attr: { title: title, href: '#' + id, class: 'ui-tabs-anchor ' + iconClass }, style: { color: $root.getUIColour(-65) }"></a>
 							</li>
 						</ul>
 						<!-- ko foreach: tabs -->
-							<div class='tab-wrap' data-bind="attr: { id: id }, visible: visible">
-                <div data-bind="css: 'panel ' + id">
-                  <div class="no-select panel-header col-anim" data-bind="visible: showTitle, text: getHeaderTitle, style: { backgroundColor: $root.getUIColour(-8) }"></div>
+							<div class='tab-wrap' data-bind="attr: { id: id }, visible: visible, style: { borderColor: $root.getUIColour(-30) }">
+                <div data-bind="css: 'tab-panel ' + id">
+                  <div class="no-select tab-panel-header col-anim" data-bind="visible: showTitle, text: getHeaderTitle, style: { backgroundColor: $root.getUIColour(-8) }"></div>
     								<!-- ko if: href != '' -->
                       <div class="iframe-wrap">
   									    <iframe data-bind="attr { src: href, title: title, name: title, visible: href, id: id + '-tab-frame' }"></iframe>
@@ -256,16 +258,24 @@
     											</li>
     										<!-- /ko -->
     									</script>
-										<div data-bind="style: { backgroundColor: $root.getUIColour(-8) }" class="no-select panel-header col-anim">Editor Settings</div>
+										<div data-bind="style: { backgroundColor: $root.getUIColour(-8) }" class="no-select tab-panel-header col-anim">Editor Settings</div>
 										<ul data-bind="template: { name: 'setting-option-template', foreach: $root.getEditorSettings }"></ul>
-										<div data-bind="style: { backgroundColor: $root.getUIColour(-8) }" class="no-select panel-header col-anim">App Settings</div>
+										<div data-bind="style: { backgroundColor: $root.getUIColour(-8) }" class="no-select tab-panel-header col-anim">App Settings</div>
 										<ul data-bind="template: { name: 'setting-option-template', foreach: $root.getAppSettings }"></ul>
     								<!-- /ko -->
     								<!-- ko if: id == 'dictionary' -->
 										<ul>
 											<li>
-												<input spellcheck="false" type="text" data-bind="textInput: $root.dictWord, event: { 'keyup': $root.addToDictionary }"></input>
+												<input spellcheck="false" type="text" data-bind="textInput: $root.dictWord, event: { 'keyup': $root.addToDictionary }" placeholder="Type to search or add..."></input>
 												<button class="btn btn-default" data-bind="click: $root.addToDictionary">Add Word</button>
+												<div>
+													<button id="dict-btn-import" data-bind="click: $root.importDictionary" title="Import dictionary" class="btn btn-default fa fa-upload"></button>
+													<button id="dict-btn-export" data-bind="click: $root.exportDictionary" title="Export dictionary" class="btn btn-default fa fa-download"></button>
+													<button id="dict-btn-clear" data-bind="click: $root.clearDictionary" title="Clear dictionary" class="btn btn-default fa fa-trash"></button>
+												</div>
+												</li>
+											<li data-bind="visible: $root.getDictionaryArray().length == 0">
+												<span>Words escape me.</span>
 											</li>
 										</ul>
 										<ul data-bind="foreach: $root.getDictionaryArray">
@@ -281,7 +291,8 @@
   												<h5 style="margin:5px;" data-bind="text: title, attr: { title: title }"></h5>
                           <p class="desc" data-bind="text: desc"></p>
                           <button class="btn btn-default" data-bind="click: $root.cloneExample"><span class="fa fa-download"></span> Import Project</button>
-  											</li>
+                          <button class="btn btn-default" data-bind="click: $root.runExample"><span class="fa fa-play"></span> Run Project</button>
+                        </li>
   										</ul>
     								<!-- /ko -->
                 </div>
@@ -295,7 +306,7 @@
 
     <!-- input elements for desktop app -->
     <input style="display:none;" id="selectFolder" type="file" nwdirectory />
-    <input style="display:none;" id="getFilePaths" type="file" multiple accept=".txt" />
+    <input style="display:none;" id="getFilePaths" type="file" multiple accept=".txt,.log" />
     <input style="display:none;" id="getImagePaths" type="file" accept=".png,.jpeg,.jpg,.gif" />
     <input style="display:none;" id="saveSceneTo" type="file" nwsaveas=".txt" />
 

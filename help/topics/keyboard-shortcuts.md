@@ -14,10 +14,17 @@
 | Wrap or insert italic tags     | CTRL + I            | CMD + I             |
 | Wrap or insert bold tags       | CTRL + B            | CMD + B             |
 | Wrap or insert variable tags   | CTRL + D            | CMD + D             |
-| Move selected text up a line   | SHIFT + CTRL + UP   | CMD + OPT + UP   |
-| Move selected text down a line | SHIFT + CTRL + DOWN | CMD + OPT + DOWN |
+| Move selected text up a line   | SHIFT + CTRL + UP   | CMD + OPT + UP      |
+| Move selected text down a line | SHIFT + CTRL + DOWN | CMD + OPT + DOWN    |
+| Duplicate line                 | SHIFT + CTRL + D    | SHIFT + CMD + D     |
+| Delete line                    | SHIFT + CTRL + K    | SHIFT + CMD + K     |
+| Toggle block comment           | CTRL + /            | CMD + /             |
 | Toggle full-window editor      | ESC / F11           | ESC / F11           |
 | Toggle console                 | SHIFT + CTRL + C    | SHIFT + CMD + C     |
+| Increase font size             | SHIFT + CTRL + =    | SHIFT + CMD + =     |
+| Decrease font size             | SHIFT + CTRL + -    | SHIFT + CMD + -     |
+| Select previous scene          | CTRL + PGUP         | CMD + ALT + PGUP    |
+| Select next scene              | CTRL + PGDN         | CMD + ALT + PGDN    |
 
 ### Global Shortcuts
 
@@ -32,6 +39,7 @@
 | Open all scenes of project          | SHIFT + CTRL + O    | SHIFT + CMD + O     |
 | Run Quicktest on project            | CTRL + T            | CMD + T             |
 | Run Randomtest on project           | SHIFT + CTRL + T    | SHIFT + CMD + T     |
+| Run active project                  | SHIFT + CTRL + ENTER| SHIFT + CMD + ENTER |
 | Toggle panel section                | SHIFT + CTRL + .    | SHIFT + CMD + .     |
 | Toggle scene section                | SHIFT + CTRL + ,    | SHIFT + CMD + ,     |
 | Toggle full-window editor           | ESC / F11           | ESC / F11           |

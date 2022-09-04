@@ -1,3 +1,121 @@
+## v1.3.3 - 21/06/2019
+
+Patch release. Upgrades ChoiceScript. Notable additions include support for the new 'create_array' and 'temp_array' commands.
+
+### Changes
+- Updated to the latest version of ChoiceScript
+
+## v1.3.2 - 21/06/2019
+
+Patch release. Upgrades ChoiceScript to fix some issues.
+
+### Fixes
+- Miscellaneous ChoiceScript issues
+
+### Changes
+- Updated to the latest version of ChoiceScript
+
+## v1.3.1 - 21/06/2019
+
+Hotfix release. Reverts atomic file writing changes from v1.3.0 due to corruption of metadata.
+
+### Fixes
+- Corrupted metadata on file writes
+
+### Changes
+- File writes are no longer atomic
+
+## v1.3.0 - 03/06/2019
+
+Feature release focussing on user dictionary improvements and bug fixes.
+
+### Fixes
+- Custom themes should now persist across sessions on all platforms
+- Fixed an issue related to spellchecking words wrapped in quotation marks
+- v1.2.1 HotFix (correctly initialize default tabs)
+- Fixed a minor issue with Dropbox error handling
+- CSIDE will no longer ignore the \*text_image command behaviour
+- Fixed an issue with 'stepping' being unable to handle \*fake_choice
+- Fixed disappearing window control/UI jumping bug
+- The 'Run Project' hotkey is now documented as intended
+
+### Additions
+- User Dictionary Improvements
+    - Optimised add/remove word functionality
+    - Added support for importing/exporting JSON-esque dictionaries
+    - Added a 'Remove All' (words) button
+    - Added real-time search filter behaviour to the input box to help with navigating large dictionaries
+- Added additional options to the indentation setting, and converted its settings control to a dropdown menu
+- Added the line and column position of the cursor to the code editor footer
+- Added an option to 'clear game data' to a running project's ChoiceScript menu
+    - This will allow for clearing of earned achievements etc.
+- Added support to cycle through the current project's scenes via hotkeys
+    - Mac: Cmd+Alt+PgUp/PgDwn
+    - Windows: Ctrl+PgUp/PgDwn
+- Added hotkeys for changing font size (ctrl/cmd[+-]) [NEEDS DOCUMENTING]
+- Extended custom theme scripting support:
+    - Misc bug fixes and error clarifications.
+    - Adds new tokens: gutter, gutter-numbers, error-lines, cursor, matches
+    - See example project for usage!
+- Atomic file writes (this should help combat reported file corruption)g
+
+### Changes
+- Updated internal copy of ChoiceScript to [Github commit](https://github.com/dfabulich/choicescript/commit/4301c06c909c50c0ab63d22601e3d2eeb6e5f1b9 "ChoiceScript Github commit")
+- Moved the right panel tab control to be vertical
+- Updated the notification library:
+    - Should improve accessibility
+    - Modified appearance of notifications
+- Turning the 'Word Count' setting off will now disable word counting
+rather than just hiding it (for performance reasons).
+- Minor UI (colour) improvement for night mode's scene/project drag and drop
+- Added a link to CSIDE's thread in the 'What is CSIDE?' documentation page
+
+## v1.2.1 - 27/12/2017
+
+Fixes a critical bug caused by turning persistent session 'off' when persistent tabs are supported.
+
+### Fixes
+- default tab order is now initialized correctly when the persistent session setting is disabled
+
+## v1.2.0 - 18/12/2017
+
+Feature release including custom themes, code folding and selection matching, a handful of bug fixes and some minor behaviour tweaks.
+
+### Additions
+- Code folding/collapsing
+- Example projects are now runnable
+- Selection matching (highlights other instances of selected text)
+- Custom theme scripting (and matching example project)
+- Spellcheck now supports including/excluding of command lines
+- Visible indentation support for spaces
+- New shortcut combos for
+  - Delete line
+  - Duplicate line
+  - Toggle block comment
+
+### Fixes
+- 'Insert double line break' menu option now respects indentation
+- Fixed a file path issue on attempts to open a project folder
+- Made some changes to mitigate a possible ui/locking bug with project controls
+- Misspelled words next to speech marks are now detected correctly
+
+### Changes
+- Updated internal copy of ChoiceScript to [Github commit](https://github.com/dfabulich/choicescript/commit/7c0a4a68ad6b6c780eb41249c6627b8dd7b42524 "ChoiceScript Github commit")
+- 'Untitled_X' scenes are now generated with fully lowercase names
+- Numerous changes to spellcheck and indentation syntax implementation
+- Editor history delay has been drastically reduced which should result in smaller/more precise undo steps
+- Updates:
+  - Development channel warning removed
+  - Name of update channel now appears in the update title
+  - Development updates are now coloured in yellow
+  - Update channel setting now has a description
+
+### Removals
+- The mixed scene indentation test performed on newly opened files has been disabled
+- The additional temporary editor themes have been removed (in light of custom theme support)
+  - Only the Light, Dark and Dichromatic themes will be supported going forward
+  - Users who's config points to removed themes will be set back to the Light theme
+
 ## v1.1.2 - 7/10/2017
 
 Includes a permission issue fix (from v1.1.1), some changes to support updates on Linux, and the latest copy of ChoiceScript.

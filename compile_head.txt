@@ -837,7 +837,7 @@ return r;},version:'0.2.1',enabled:false};me.enabled=alive.call(me);return me;}(
 
       test: function() {
         try {
-          return window.isIosApp ? true : false;
+          return (window.isIosApp || /CoGnibus/.test(navigator.userAgent)) ? true : false;
         } catch (e) {
           return false;
         }
@@ -858,12 +858,14 @@ return r;},version:'0.2.1',enabled:false};me.enabled=alive.call(me);return me;}(
           });
 
           var url = scheme + "://" + path;
-          var iframe = document.createElement("IFRAME");
-          iframe.setAttribute("src", url);
-          iframe.setAttribute("style", "display:none");
-          document.documentElement.appendChild(iframe);
-          iframe.parentNode.removeChild(iframe);
-          iframe = null;
+          setTimeout(function() {
+            var iframe = document.createElement("IFRAME");
+            iframe.setAttribute("src", url);
+            iframe.setAttribute("style", "display:none");
+            document.documentElement.appendChild(iframe);
+            iframe.parentNode.removeChild(iframe);
+            iframe = null;
+          }, 0);
         },
 
         get: function(key, fn, scope) {
@@ -872,6 +874,10 @@ return r;},version:'0.2.1',enabled:false};me.enabled=alive.call(me);return me;}(
           key = this.key(key);
 
           var nonce = "storageget" + key + (+new Date);
+          var i = 0;
+          while (window[nonce]) {
+            nonce = "storageget" + key + (+new Date) + String(i++);
+          }
           window[nonce] = function(value) {
             delete window[nonce];
             fn.call(scope || this, true, value);
@@ -885,6 +891,10 @@ return r;},version:'0.2.1',enabled:false};me.enabled=alive.call(me);return me;}(
 
           // set value
           var nonce = "storageset" + key + (+new Date);
+          var i = 0;
+          while (window[nonce]) {
+            nonce = "storageget" + key + (+new Date) + String(i++);
+          }
           window[nonce] = function() {
             delete window[nonce];
             if (fn) fn.call(scope || this, true, val);
@@ -910,6 +920,10 @@ return r;},version:'0.2.1',enabled:false};me.enabled=alive.call(me);return me;}(
 
           // delete value
           var nonce = "storagerem" + key + (+new Date);
+          var i = 0;
+          while (window[nonce]) {
+            nonce = "storageget" + key + (+new Date) + String(i++);
+          }
           window[nonce] = function() {
             delete window[nonce];
             if (fn) fn.call(scope || this, (val !== null), val);
@@ -1570,14 +1584,15 @@ return r;},version:'0.2.1',enabled:false};me.enabled=alive.call(me);return me;}(
  * either express or implied.
  */
 
-_global = this;
+_global = typeof globalThis !== "undefined" ? globalThis : this;
 
 (function() {
-  var userAgent, url, protocol;
+  var userAgent, url, protocol, appMeta;
   if (typeof window !== "undefined") {
     userAgent = navigator.userAgent;
     url = window.location.href;
     protocol = window.location.protocol;
+    appMeta = window.document.querySelector("meta[name=apple-itunes-app]");
   }
   _global.isWebOS = /webOS/.test(userAgent);
   _global.isMobile = _global.isWebOS || /Mobile/.test(userAgent);
@@ -1591,8 +1606,12 @@ _global = this;
   try {
     isWinOldApp = window.external.IsWinOldApp();
   } catch (ignored) {}
-  _global.isWeb = !_global.isWinOldApp && /^https?:/.test(url);
   _global.isAndroid = /Android/.test(userAgent);
+  _global.isOmnibusApp = /CoGnibus/.test(userAgent);
+  _global.isIosApp = _global.isIosApp || (_global.isOmnibusApp && !_global.isAndroid);
+  _global.isAndroidApp = _global.isAndroidApp || (_global.isOmnibusApp && _global.isAndroid);
+  _global.isAmazonAndroidApp = _global.isAmazonAndroidApp || (_global.isAndroidApp && _global.flavor && _global.flavor.isAmazon());
+  _global.isWeb = !_global.isIosApp && !_global.isAndroidApp && !_global.isWinOldApp && /^https?:/.test(url);
   _global.isSecureWeb = /^https:?$/.test(protocol);
   _global.isSafari = /Safari/.test(userAgent);
   _global.isIE = /(MSIE|Trident)/.test(userAgent);
@@ -1602,12 +1621,16 @@ _global = this;
   _global.isWinStoreApp = "ms-appx:" == protocol;
   _global.isCef = !!_global.cefQuery;
   _global.isNode = typeof process !== "undefined";
+  _global.isHeartsChoice = appMeta && /1487052276/.test(appMeta.getAttribute("content"))
 })();
 
 _global.loadTime = new Date().getTime();
 
 function callIos(scheme, path) {
   if (!_global.isIosApp) return;
+  if (typeof webkit !== "undefined" && webkit.messageHandlers) {
+    return webkit.messageHandlers.choicescript.postMessage([scheme, path]);
+  }
   if (path) {
     path = encodeURIComponent(path).replace(/[!~*')(]/g, function(match) {
       return "%" + match.charCodeAt(0).toString(16);
@@ -1687,11 +1710,7 @@ function isDefined(x) {
 }
 
 function jsonStringifyAscii(obj) {
-  var stringified = JSON.stringify(obj, function replacer(key, value) {
-    if (key == "scene") return undefined;
-    return value;
-  });
-  var output = stringified.replace(/(.)/g, function(x) {
+  var output = JSON.stringify(obj).replace(/(.)/g, function(x) {
     var code = x.charCodeAt(0);
     if (code > 127 || code < 32) {
      var outCode = code.toString(16);
@@ -1808,7 +1827,10 @@ function xhrAuthRequest(method, endpoint, callback) {
     } catch (e) {
       ok = false;
     }
-    if (!ok && !response.error) response.error = "unknown error";
+    if (!ok) {
+      if (!response.error) response.error = "unknown error";
+      response.status = xhr.status;
+    }
     if (callback) safeCall(null, function() {callback(ok, response);});
   };
   xhr.send(params);
@@ -1827,14 +1849,15 @@ function logout(callback) {
   xhrAuthRequest("GET", "logout", callback);
   recordLogin(false);
   window.knownPurchases = null;
+  window.registered = false;
   if (typeof FB != "undefined" && FB.logout) FB.logout();
   if (typeof gapi != "undefined" && gapi.auth && gapi.auth.signOut) gapi.auth.signOut();
 }
 
-function recordLogin(registered, email, callback) {
+function recordLogin(registered, loginId, email, callback) {
   if (initStore()) {
     if (registered) recordEmail(email);
-    window.store.set("login", registered, function() {safeCall(null, callback);});
+    window.store.set("login", loginId || 0, function() {safeCall(null, callback);});
     window.registered = registered;
   } else {
     safeTimeout(callback, 0);
@@ -1862,11 +1885,11 @@ function computeCookie(stats, temps, lineNum, indent) {
 }
 
 function writeCookie(value, slot, callback) {
-  if (!window.pseudoSave) window.pseudoSave = {};
+  if (!_global.pseudoSave) _global.pseudoSave = {};
   if (!slot) {
     slot = "";
   }
-  window.pseudoSave[slot] = value;
+  _global.pseudoSave[slot] = value;
   if (!initStore()) {
     if (callback) safeTimeout(callback, 0);
     return;
@@ -1923,6 +1946,19 @@ function fetchEmail(callback) {
   if (!initStore()) {
     safeTimeout(function(){callback("");}, 0);
     return;
+  }
+  if (window.recordedEmail) {
+    return safeTimeout(function() {
+      callback(window.recordedEmail);
+    })
+  }
+  if (window.isWeb) {
+    var cookieEmail = getCookieByName("login");
+    if (/@/.test(cookieEmail)) {
+      return recordEmail(cookieEmail, function() {
+        callback(cookieEmail);
+      });
+    }
   }
   // For some reason, this get seems to not respond sometimes
   // adding a fallback timeout
@@ -2128,7 +2164,9 @@ function getRemoteSaves(email, callback) {
       result = jsonParse(result);
       var remoteSaveList = [];
       for (var i = 0; i < result.length; i++) {
+        if (!result[i]) continue;
         var save = result[i].json;
+        if (!save) continue;
         save.timestamp = result[i].timestamp;
         remoteSaveList.push(save);
       }
@@ -2191,6 +2229,90 @@ function mergeRemoteSaves(remoteSaveList, recordDirty, callback) {
   });
 }
 
+function getAppId() {
+  if (window.isIosApp) {
+    var appBanner = document.querySelector("meta[name=apple-itunes-app]");
+    return /app-id=(\d+)/.exec(appBanner.getAttribute("content"))[1];
+  } else if (window.isAndroidApp) {
+    var androidLink = document.getElementById('androidLink');
+    return /id=([\.\w]+)/.exec(androidLink.href)[1];
+  }
+}
+
+function submitReceipts(receipts, callback) {
+  console.log("submitReceipts: " + JSON.stringify(receipts));
+  if (!callback) callback = function(error) {
+    if (window.transferPurchaseCallback) {
+      window.transferPurchaseCallback(error || "done");
+    }
+  };
+  var appId = receipts.appId;
+  var count = 0;
+  var error;
+  function submitCallback(product) {
+    return function submitCallback(ok, response) {
+      if (!ok) {
+        console.log("failed: " + product + " " + JSON.stringify(response));
+        if (!error) {
+          var match = /^receipt transaction already processed: (\d+) current login (\d+)$/.exec(response.error);
+          if (match) {
+            callback("409-" + match[1] + "-" + match[2]);
+          } else {
+            callback("" + response.status + "r");
+          }
+        }
+        error = true;
+      }
+      if (error) return;
+      count--;
+      if (!count) {
+        if (!receipts.avoidOverrides) cacheKnownPurchases(response);
+        callback();
+      }
+    }
+  }
+
+  if (window.isAndroidApp) {
+    window.store.get("login", function(ok, loginId) {
+      loginId = loginId || 0;
+      var platform = window.isAmazonAndroidApp ? 'amazon' : 'google';
+      if (receipts.prePurchased && platform === 'google') {
+        for (var i = 0; i < receipts.prePurchased.length; i++) {
+          var product = receipts.prePurchased[i];
+          count++;
+          xhrAuthRequest("POST", "submit-device-receipt", submitCallback(product),
+            'platform', platform,
+            'company', receipts.company,
+            'game_id', window.storeName,
+            'app_package', appId,
+            'product_id', product,
+            'signature', encodeURIComponent(receipts.signature),
+            'receipt', encodeURIComponent(receipts.signedData),
+            'login_id', loginId
+          );
+        }
+      }
+      if (receipts.iaps) {
+        for (var product in receipts.iaps) {
+          count++;
+          xhrAuthRequest("POST", "submit-device-receipt", submitCallback(product),
+            'platform', platform,
+            'company', receipts.company,
+            'game_id', window.storeName,
+            'app_package', appId,
+            'product_id', product,
+            'receipt', encodeURIComponent(receipts.iaps[product]),
+            'login_id', loginId
+          );
+        }
+      }
+      if (!count) safeTimeout(function () { callback(); }, 0);
+    });
+  } else {
+    callback("error");
+  }
+}
+
 function delayBreakStart(callback) {
   var nowInSeconds = Math.floor(new Date().getTime() / 1000);
   if (!initStore()) {
@@ -2227,40 +2349,20 @@ function loadAndRestoreGame(slot, forcedScene) {
     safeCall(null, function() {
       var state = null;
       if (ok && value && ""+value) {
+        //console.log("successfully loaded slot " + slot);
         state = jsonParse(value);
-      } else if (window.Persist.type == "androidStorage" && document.cookie) {
-        return upgradeAndroidCookies(slot,forcedScene);
+      } else if (slot == "backup") {
+        console.log("loadAndRestoreGame couldn't find backup");
+        if (typeof alertify !== "undefined") alertify.log("Failed restarting chapter. Restarting the game from scratch.");
+        return restartGame();
       }
       restoreGame(state, forcedScene);
     });
   }
   if (!slot) slot = "";
-  if (window.pseudoSave && pseudoSave[""]) return valueLoaded(true, pseudoSave[""]);
+  if (_global.pseudoSave && pseudoSave[slot]) return valueLoaded(true, pseudoSave[slot]);
   if (!initStore()) return restoreGame(null, forcedScene);
   window.store.get("state"+slot, valueLoaded);
-}
-
-// we used to use cookies on some Android devices; now we use androidStorage
-function upgradeAndroidCookies(slot, forcedScene) {
-  var ck = document.cookie;
-  var components = ck.split("; ");
-  function upgradeComponent(i) {
-    if (!components[i]) {
-      loadAndRestoreGame(slot, forcedScene);
-      return;
-    }
-    var parts = components[i].split("=");
-    var key = parts[0];
-    var deletion = key + "=x; path=/; domain=localhost; expires=Thu, 01-Jan-1970 00:00:01 GMT";
-    document.cookie = deletion;
-    // key is in the format "storeName:actualKey"
-    key = unescape(key).substring(window.storeName.length + 1);
-    var value = unescape(parts[1]);
-    window.store.set(key, value, function() {
-      upgradeComponent(i+1);
-    });
-  }
-  safeCall(this, function() {upgradeComponent(0);});
 }
 
 function isStateValid(state) {
@@ -2271,16 +2373,17 @@ function isStateValid(state) {
 }
 
 function restartGame(shouldPrompt) {
-  if (window.blockRestart) {
+  if (_global.blockRestart) {
     asyncAlert("Please wait until the timer has run out.");
     return;
   }
   function actuallyRestart(result) {
     if (!result) return;
+    delayBreakEnd();
     submitAnyDirtySaves();
     clearCookie(function() {}, 'temp');
     clearCookie(function() {
-      window.nav.resetStats(window.stats);
+      _global.nav.resetStats(_global.stats);
       clearScreen(restoreGame);
     }, "");
   }
@@ -2309,13 +2412,13 @@ function restoreGame(state, forcedScene, userRestored) {
       saveSlot = "temp";
     }
     if (!isStateValid(state)) {
-        var startupScene = forcedScene ? forcedScene : window.nav.getStartupScene();
-        scene = new Scene(startupScene, window.stats, window.nav, {debugMode:window.debug, secondaryMode:secondaryMode, saveSlot:saveSlot});
+        var startupScene = forcedScene ? forcedScene : _global.nav.getStartupScene();
+        scene = new Scene(startupScene, _global.stats, _global.nav, {debugMode:_global.debug, secondaryMode:secondaryMode, saveSlot:saveSlot});
     } else {
       if (forcedScene) state.stats.sceneName = forcedScene;
-      window.stats = state.stats;
+      _global.stats = state.stats;
       // Someday, inflate the navigator using the state object
-      scene = new Scene(state.stats.sceneName, state.stats, window.nav, {debugMode:state.debug || window.debug, secondaryMode:secondaryMode, saveSlot:saveSlot});
+      scene = new Scene(state.stats.sceneName, state.stats, _global.nav, {debugMode:state.debug || _global.debug, secondaryMode:secondaryMode, saveSlot:saveSlot});
       if (!forcedScene) {
         scene.temps = state.temps;
         scene.lineNum = state.lineNum;
@@ -2334,6 +2437,7 @@ function restoreGame(state, forcedScene, userRestored) {
 function redirectScene(sceneName, label, originLine) {
   var scene = new Scene(sceneName, window.stats, window.nav, {debugMode:window.debug});
   if (label) scene.targetLabel = {label:label, origin:"choicescript_stats", originLine:originLine};
+  scene.redirectingFromStats = true;
   clearScreen(function() {scene.execute();});
 }
 
@@ -2361,8 +2465,10 @@ function getCookieByName(cookieName, ck) {
 
 function parseQueryString(str) {
   if (!str) return null;
+  str = String(str).substring(1);
+  if (!str) return null;
   var map = {};
-  var pairs = String(str).substring(1).split("&");
+  var pairs = str.split("&");
   var i = pairs.length;
   while (i--) {
     var pair = pairs[i];
@@ -2371,6 +2477,7 @@ function parseQueryString(str) {
   }
   return map;
 }
+
 function trim(str) {
     if (str === null || str === undefined) return null;
     var result = str.replace(/^\s+/g, "");
@@ -2392,15 +2499,17 @@ function findOptimalDomain(docDomain) {
     return null;
 }
 
-function num(x, line) {
+function num(x, line, sceneName) {
     if (!line) line = "UNKNOWN";
+    errorInfo = "line "+line;
+    if (sceneName) errorInfo = sceneName + " " + errorInfo;
     var x_num = parseFloat(x);
-    if (isNaN(x_num)) throw new Error("line "+line+": Not a number: " + x);
-    if (!isFinite(x_num)) throw new Error("line "+line+": Not finite " + x);
+    if (isNaN(x_num)) throw new Error(errorInfo+": Not a number: " + x);
+    if (!isFinite(x_num)) throw new Error(errorInfo+": Not finite " + x);
     return x_num;
 }
 
-function bool(x, line) {
+function bool(x, line, sceneName) {
   if (!line) line = "UNKNOWN";
   if ("boolean" == typeof x) {
     return x;
@@ -2409,7 +2518,9 @@ function bool(x, line) {
   } else if ("false" === x) {
     return false;
   }
-  throw new Error("line "+line+": Neither true nor false: " + x);
+  errorInfo = "line "+line;
+  if (sceneName) errorInfo = sceneName + " " + errorInfo;
+  throw new Error(errorInfo+": Neither true nor false: " + x);
 }
 
 function findXhr() {
@@ -2441,18 +2552,24 @@ function findXhr() {
         return crc ^ (-1);
     }
 
-function simpleDateTimeFormat(date) {
+function simpleDateFormat(date) {
   var day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][date.getDay()];
   var month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][date.getMonth()];
   var minutes = date.getMinutes();
-  if (minutes < 10) minutes = "0" + (""+minutes);
+  if (minutes < 10) minutes = "0" + ("" + minutes);
   var oneYearInMillis = 1000 * 60 * 60 * 24 * 365;
   var millisAgo = new Date().getTime() - date.getTime();
   var yearString = ""
   if (millisAgo > oneYearInMillis) {
     yearString = ", " + date.getFullYear();
   }
-  return day + ", " + month + " " + date.getDate() + yearString + ", " + date.getHours() + ":" + minutes;
+  return day + ", " + month + " " + date.getDate() + yearString;
+}
+
+function simpleDateTimeFormat(date) {
+  var minutes = date.getMinutes();
+  if (minutes < 10) minutes = "0" + ("" + minutes);
+  return simpleDateFormat(date) + ", " + date.getHours() + ":" + minutes;
 }
 
 function jsonParse(str) {
@@ -2525,6 +2642,224 @@ function matchBracket(line, brackets, startIndex) {
   }
   return -1;
 }
+
+function isStoreSceneCacheRequired() {
+  if (!(initStore() &&
+    _global.purchases &&
+    _global.checkPurchase &&
+    _global.hashes &&
+    !(_global.isOmnibusApp && _global.isIosApp) &&
+    hashes.scenes
+  )) return false;
+  var empty = true;
+  for (var scene in purchases) {
+    if (/^fake:/.test(scene)) continue;
+    empty = false;
+    break;
+  }
+  return !empty;
+}
+
+function updateSinglePaidSceneCache(sceneName, callback) {
+  sceneName = sceneName.replace(/ /g, "_");
+  var fileName = sceneName + ".txt.json";
+  if (initStore() && _global.hashes && hashes.scenes && hashes.scenes[fileName]) {
+    function actualRequest(receiptsSent) {
+      var xhr = new XMLHttpRequest();
+      var canonical = document.querySelector("link[rel=canonical]");
+      var canonicalHref = canonical && canonical.getAttribute("href");
+      if (window.beta) {
+        canonicalHref = canonicalHref.replace('https://www.choiceofgames.com/', 'https://www.choiceofgames.com/beta/');
+      }
+      var url = canonicalHref + "scenes/" + fileName + "?hash="+hashes.scenes[fileName];
+      xhr.open("GET", url);
+      xhr.withCredentials = true;
+      xhr.onload = function() {
+        var error;
+        if (xhr.status !== 200) {
+          try {
+            error = JSON.parse(xhr.responseText).error;
+          } catch (e) {}
+        }
+        if (xhr.status === 404) {
+          try {
+            if (error === "hash doesn't match") {
+              return awaitAppUpdate(function() {
+                callback("strange");
+              })
+            }
+          } catch (e) {
+            if (window.console) console.error(e, e.stack);
+          }
+        }
+        if (xhr.status == 403 && _global.isOmnibusApp && _global.isAndroidApp) {
+          if (!receiptsSent) {
+            window.receiptRequestCallback = function(receipts) {
+              window.receiptRequestCallback = null;
+              submitReceipts(receipts, function(error) {
+                if (error) {
+                  return callback(error);
+                } else {
+                  actualRequest("receiptsSent");
+                }
+              });
+            }
+            androidBilling.requestReceipts();
+            return;
+          } else if (error === "not registered" || error == "not purchased") {
+            return callback(error);
+          }
+        } else if (xhr.status !== 200) {
+          return callback(xhr.status);
+        }
+        var result;
+        try {
+          result = jsonParse(xhr.responseText);
+        } catch (e) {
+          if (window.console) console.error(e, e.stack);
+        }
+        var ok = result && result.crc && result.lines && result.labels;
+        if (!ok) return callback("network");
+        window.store.set("cache_scene_"+sceneName, xhr.responseText, function() {
+          window.store.set("cache_scene_hash_"+sceneName, hashes.scenes[fileName], function() {
+            callback(null, result);
+          });
+        });
+      };
+      xhr.onerror = function() {
+        callback("network");
+      }
+      console.log("updateSinglePaidSceneCache " + url);
+      xhr.send();
+    }
+    actualRequest();
+  }
+}
+
+function updateAllPaidSceneCaches(receiptsSent) {
+  if (!isStoreSceneCacheRequired()) {
+    if (window.isOmnibusApp && window.isAndroidApp) {
+      window.receiptRequestCallback = submitReceipts;
+      androidBilling.requestReceipts();
+    }
+    return;
+  }
+  if (_global.isOmnibusApp && _global.isAndroidApp && !receiptsSent) {
+    window.receiptRequestCallback = function(receipts) {
+      submitReceipts(receipts, function() {updateAllPaidSceneCaches("receiptsSent");});
+    };
+    androidBilling.requestReceipts();
+    return;
+  }
+  var flipped = {};
+  for (var scene in purchases) {
+    if (/^fake:/.test(scene)) continue;
+    scene = scene.replace(/ /g, "_");
+    if (!flipped[purchases[scene]]) flipped[purchases[scene]] = [];
+    flipped[purchases[scene]].push(scene);
+  }
+  var products = [];
+  for (var product in flipped) {
+    products.push(product);
+  }
+  if (!products.length) return;
+  checkPurchase(products.join(" "), function(ok, result) {
+    if (!ok || !result) return;
+    var sceneList = [];
+    var push = Array.prototype.push;
+    for (var product in flipped) {
+      if (result[product]) {
+        push.apply(sceneList, flipped[product]);
+      }
+    }
+    if (!sceneList.length) return;
+    for (var i = 0; i < sceneList.length; i++) {
+      (function(i) {
+        var scene = sceneList[i];
+        var fileName = scene + ".txt.json";
+        window.store.get("cache_scene_hash_"+scene, function(ok, result) {
+          if (!ok || result !== hashes.scenes[fileName]) {
+            updateSinglePaidSceneCache(scene, function() {});
+          }
+        });
+      })(i);
+    }
+  })
+}
+
+function checkForAppUpdates() {
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.getRegistration().then(function(reg) {
+      if (reg) reg.update();
+    });
+  }
+}
+
+function refreshIfAppUpdateReady() {
+  if (navigator.serviceWorker) {
+    if (window.controllerchanged) {
+      return window.location.reload();
+    }
+    navigator.serviceWorker.getRegistration().then(function(reg) {
+      if (reg.waiting) {
+        reg.waiting.postMessage('skipWaiting');
+        return window.location.reload();
+      }
+    });
+  }
+}
+
+function awaitAppUpdate(callback) {
+
+  var serviceWorkerExists = (navigator.serviceWorker && navigator.serviceWorker.controller);
+  if (!serviceWorkerExists) return callback();
+
+  var calledBack = false;
+  var maybeCallback = function() {
+    if (calledBack) return;
+    calledBack = true;
+    callback();
+  }
+
+  if (window.controllerchanged) return maybeCallback();
+  setTimeout(maybeCallback, 10000);
+  navigator.serviceWorker.getRegistration().then(function(reg) {
+    if (!reg) return maybeCallback();
+    if (reg.waiting) {
+      reg.waiting.postMessage('skipWaiting');
+      return maybeCallback();
+    }
+    var watchStateChange = function() {
+      if (this.state == 'installed') {
+        if (reg.waiting) reg.waiting.postMessage('skipWaiting');
+        maybeCallback();
+      }
+    };
+    if (reg.installing) reg.installing.addEventListener('statechange', watchStateChange);
+    reg.update();
+    reg.addEventListener('updatefound', function() {
+      reg.installing.addEventListener('statechange', watchStateChange);
+    })
+  });
+}
+
+function remoteConfig(variable, callback) {
+  if (!_global.isOmnibusApp) {
+    safeTimeout(function() {callback(null);}, 0);
+    return;
+  }
+  if (_global.isIosApp) {
+    var nonce = "remoteConfig" + variable + (+new Date);
+    window[nonce] = function(value) {
+      delete window[nonce];
+      callback(value);
+    }
+    callIos("remoteconfig", variable + " " + nonce);
+  } else {
+    var result = (_global.androidRemoteConfig && androidRemoteConfig.remoteConfig(variable)) || null;
+    return safeTimeout(function() {callback(result);}, 0);
+  }
+}
 /*
  * Copyright 2010 by Dan Fabulich.
  *
@@ -2587,7 +2922,9 @@ function replaceBbCode(msg) {
       .replace(/\[b\]/g, '<b>')
       .replace(/\[\/b\]/g, '</b>')
       .replace(/\[i\]/g, '<i>')
-      .replace(/\[\/i\]/g, '</i>');
+      .replace(/\[\/i\]/g, '</i>')
+      .replace(/\u2022([\s\S]*)/, '<ul>•$1</ul>')
+      .replace(/\u2022([^\u2022]*)/g, '<li>$1</li>')
 }
 
 function println(msg, parent) {
@@ -2632,6 +2969,16 @@ function redirectFromStats(scene, label, originLine, callback) {
     statsMode.redirectFromStats(scene, label || "", originLine);
   } else {
     safeTimeout(callback, 0);
+  }
+}
+
+function returnFromStats() {
+  if (window.isIosApp && !window.isIPad) {
+    callIos("returntogame");
+  } else if (window.isAndroidApp && window.statsMode.get()) {
+    statsMode.returnToGame();
+  } else {
+    clearScreen(loadAndRestoreGame);
   }
 }
 
@@ -2685,8 +3032,13 @@ function showMenu() {
       {name:"Email me when new games are available.", group:"choice", subscribe:true},*/
       {name:"Make the text bigger or smaller.", group:"choice", fontSizeMenu:true},
       {name:"Change the background color.", group:"choice", background:true},
-      {name:"Change the animation between pages.", group:"choice", animation:true},
     ];
+    if (window.animationProperty) options.push(
+      {name:"Change the animation between pages.", group:"choice", animation:true}
+    );
+    if (parent && parent.cside) {
+      options.push({name:"Clear game data.", group:"choice", clearData:true});
+    }
     printOptions([""], options, function(option) {
       if (option.resume) {
         return clearScreen(function() {
@@ -2715,6 +3067,8 @@ function showMenu() {
         textOptionsMenu({color:1});
       } else if (option.animation) {
         textOptionsMenu({animation:1});
+      } else if (option.clearData) {
+        textOptionsMenu({clearData:1});
       }
     });
     curl();
@@ -2750,7 +3104,7 @@ function setButtonTitles() {
 
 function textOptionsMenu(categories) {
   if (!categories) {
-    categories = {size:1, color:1, animation:1};
+    categories = {size:1, color:1, animation:window.animationProperty};
     if (document.getElementById('loading')) return;
     var button = document.getElementById("menuButton");
     if (!button) return;
@@ -2775,6 +3129,8 @@ function textOptionsMenu(categories) {
       text.innerHTML = "<p>Change the background color.</p>";
     } else if (categories.animation) {
       text.innerHTML = "<p>Change the animation between pages.</p>";
+    } else if (categories.clearData) {
+      text.innerHTML = "<p>Clear CSIDE's game data for all games? This means everything: achievements, aesthetic preferences and the rest.</p><p>The game tab will be reset.</p>";
     }
     options = [
       {name:"Return to the game.", group:"choice", resume:true},
@@ -2800,6 +3156,9 @@ function textOptionsMenu(categories) {
       {name: "Animate between pages.", group:"choice", animation:1},
       {name: "Don't animate between pages.", group:"choice", animation:2}
     );
+    if (categories.clearData) options.push(
+      {name: "Clear data.", group:"choice", clearData:true}
+    );
     printOptions([""], options, function(option) {
       if (option.resume) {
         return clearScreen(function() {
@@ -2813,6 +3172,11 @@ function textOptionsMenu(categories) {
       } else if (option.animation) {
         window.animateEnabled = option.animation !== 2;
         if (initStore()) store.set("preferredAnimation", parseFloat(option.animation));
+      } else if (option.clearData) {
+        if (initStore()) store.store.clear();
+        return clearScreen(function() {
+          location.reload();
+        });
       } else {
         changeFontSize(option.bigger);
       }
@@ -2823,27 +3187,18 @@ function textOptionsMenu(categories) {
 }
 
 function getZoomFactor() {
-  if (document.body.style.zoom === undefined) {
+  if (document.documentElement.style.fontSize === undefined) {
     return window.zoomFactor || 1;
   } else {
-    var zoomFactor = parseFloat(document.body.style.zoom);
-    if (isNaN(zoomFactor)) zoomFactor = 1;
-    return zoomFactor;
+    var fontSize = parseFloat(document.documentElement.style.fontSize);
+    if (isNaN(fontSize)) fontSize = 100;
+    return fontSize / 100;
   }
 }
 
 function setZoomFactor(zoomFactor) {
-  if (document.body.style.zoom === undefined) {
-    var initialMaxWidth = 680;
-    document.body.style.maxWidth = (initialMaxWidth / zoomFactor) + "px";
-    document.body.style.transformOrigin = "center top";
-    document.body.style.transform = "scale("+zoomFactor+")";
-    document.body.style.webkitTransformOrigin = "center top";
-    document.body.style.webkitTransform = "scale("+zoomFactor+")";
-    window.zoomFactor = zoomFactor;
-  } else {
-    document.body.style.zoom = zoomFactor;
-  }
+  document.documentElement.style.fontSize = Math.round(100*zoomFactor) + "%";
+  window.zoomFactor = zoomFactor;
   if (initStore()) store.set("preferredZoom", String(zoomFactor));
 }
 
@@ -3048,8 +3403,6 @@ function clearScreen(code) {
         extraScroll = 1; // try to hide url bar
       }
       pageYOffset -= extraScroll;
-      var zoomFactor = window.zoomFactor || document.body.style.zoom;
-      if (zoomFactor) pageYOffset /= parseFloat(zoomFactor);
       container1.style.transform = "translateY(-"+pageYOffset+ "px)";
       container1.style.webkitTransform = "translateY(-"+pageYOffset+ "px)";
       window.scrollTo(0,extraScroll);
@@ -3123,6 +3476,10 @@ function curl() {
     }
   }
 
+  // The firstFocus 'jump' breaks CSIDE's UI if the
+  // first element is bigger than the iframe's viewport.
+  if (parent && parent.cside) { focusFirst = function(){};}
+
   // TODO force a reflow before curling the page
   var container2 = document.getElementById('container2');
   if (!container2) {
@@ -3169,7 +3526,7 @@ function curl() {
         if (shouldSlide) {
           var fastApple = window.isIPad || window.isIPhone || window.isMacApp;
           var slowAndroid = window.isAndroidApp && /Android 4/.test(navigator.userAgent);
-          var useCssAnimations = fastApple || slowAndroid;
+          var useCssAnimations = true; // fastApple || slowAndroid;
           if (useCssAnimations) {
             container1.style[window.animationProperty] = 'containerslideout';
             container2.style[window.animationProperty] = 'containerslidein';
@@ -3232,12 +3589,20 @@ function startLoading() {
         document.body.appendChild(loading);
       });
     }
+    callIos('startspinner');
 }
 
 function doneLoading() {
     var loading = document.getElementById('loading');
     if (loading) loading.parentNode.removeChild(loading);
     // TODO update header?
+    callIos('stopspinner');
+    if (window.doneLoadingCallback) {
+      var callback = doneLoadingCallback;
+      delete window.doneLoadingCallback;
+      // long delay to ensure the spinner is fully stopped before continuing
+      setTimeout(callback, 10);
+    }
 }
 
 function setClass(element, classString) {
@@ -3250,7 +3615,7 @@ function printFooter() {
   // We could put anything we want in the footer here, but perhaps we should avoid it.
   var statsButton = document.getElementById("statsButton");
   if (statsButton) {
-    if (window.stats.scene.secondaryMode == "stats") {
+    if (window.stats && stats.scene && stats.scene.secondaryMode == "stats") {
       statsButton.innerHTML = "Return to the Game";
     } else {
       statsButton.innerHTML = "Show Stats";
@@ -3318,9 +3683,6 @@ function printOptions(groups, options, callback) {
   // global num will be used to assign accessKeys to the options
   var globalNum = 1;
   var currentOptions = options;
-  var div = document.createElement("div");
-  form.appendChild(div);
-  setClass(div, "choice");
   for (var groupNum = 0; groupNum < groups.length; groupNum++) {
       var group = groups[groupNum];
       if (group) {
@@ -3331,8 +3693,11 @@ function printOptions(groups, options, callback) {
 
           var p = document.createElement("p");
           p.appendChild(document.createTextNode(textBuilder.join("")));
-          div.appendChild(p);
+          form.appendChild(p);
       }
+      var div = document.createElement("div");
+      form.appendChild(div);
+      setClass(div, "choice");
       var checked = null;
       for (var optionNum = 0; optionNum < currentOptions.length; optionNum++) {
           var option = currentOptions[optionNum];
@@ -3343,8 +3708,6 @@ function printOptions(groups, options, callback) {
       // for rendering, the first options' suboptions should be as good as any other
       currentOptions = currentOptions[0].suboptions;
   }
-
-  form.appendChild(document.createElement("br"));
 
   var touchStartHandler = function (e) {
     if (e.touches.length > 1) return;
@@ -3433,7 +3796,7 @@ function printOptions(groups, options, callback) {
   var slidingEnabled = true;
   if (window.slidingEnabled === false || groups.length > 1) slidingEnabled = false;
 
-  if (slidingEnabled) [].forEach.call(document.querySelectorAll('label'), function(label) {
+  if (slidingEnabled) [].forEach.call(document.querySelectorAll('.choice > div'), function(label) {
     label.addEventListener('touchstart', touchStartHandler);
     if (window.isMobile) label.addEventListener('click', function(e) {
       var target = e.currentTarget;
@@ -3467,7 +3830,7 @@ function printOptionRadioButton(div, name, option, localChoiceNumber, globalChoi
     var unselectable = false;
     if (!name) unselectable = option.unselectable;
     var disabledString = unselectable ? " disabled" : "";
-    var id = name + localChoiceNumber;
+    var id = name + localChoiceNumber + "-" + Math.random().toString(36).substring(2);
     if (!name) name = "choice";
     var radio;
     var div2 = document.createElement("div");
@@ -3520,8 +3883,17 @@ function printOptionRadioButton(div, name, option, localChoiceNumber, globalChoi
 
 function printImage(source, alignment, alt, invert) {
   var img = document.createElement("img");
+  if (typeof hashes != 'undefined' && hashes[source]) {
+    source += "?hash=" + hashes[source];
+  }
   img.src = source;
   if (alt !== null && String(alt).length > 0) img.setAttribute("alt", alt);
+  var zoomFactor = getZoomFactor();
+  if (zoomFactor !== 1) {
+    var size = (zoomFactor * 100) + '%';
+    img.style.height = size;
+    img.style.width = size;
+  }
   if (invert) {
     setClass(img, "invert align"+alignment);
   } else {
@@ -3533,6 +3905,9 @@ function printImage(source, alignment, alt, invert) {
 function playSound(source) {
   for (var existingAudios = document.getElementsByTagName("audio"); existingAudios.length;) {
     existingAudios[0].parentNode.removeChild(existingAudios[0]);
+  }
+  if (typeof hashes != 'undefined' && hashes[source]) {
+    source += "?hash=" + hashes[source];
   }
   var audio = document.createElement("audio");
   if (audio.play) {
@@ -3557,30 +3932,25 @@ function printYoutubeFrame(slug) {
 
 function moreGames() {
     if (window.isIosApp) {
-      window.location.href = "itms-apps://itunes.com/apps/choiceofgames";
+      window.location.href = "https://choiceofgames.app.link/jBm199qZXL/";
     } else if (window.isAndroidApp) {
       if (window.isNookAndroidApp) {
         asyncAlert("Please search the Nook App Store for \"Choice of Games\" for more games like this!");
         return;
       }
       if (window.isAmazonAndroidApp) {
-        var androidLink = document.getElementById('androidLink');
-        if (androidLink && androidLink.href) {
-          androidUrl = androidLink.href;
-          var package = /id=([\.\w]+)/.exec(androidUrl)[1];
-          window.location.href = "http://www.amazon.com/gp/mas/dl/android?p="+package+"&showAll=1&t=choofgam-20&ref=moreGames";
-        } else {
-          window.location.href = "http://www.amazon.com/gp/mas/dl/android?p=com.choiceofgames.dragon&showAll=1&t=choofgam-20&ref=moreGames";
-        }
+        window.location.href = "https://www.amazon.com/gp/mas/dl/android?p=com.choiceofgames.omnibus&t=choofgam-20&ref=moreGames";
       } else {
-        window.location.href = "market://search?q=pub:%22Choice+of+Games+LLC";
+        window.location.href = "https://play.google.com/store/apps/details?id=com.choiceofgames.omnibus&referrer=utm_medium%3Dweb%26utm_source%3Dmoregames";
       }
     } else if (window.isSteamApp) {
-      window.location.href = "https://www.choiceofgames.com/steam-curation.php";
+      window.location.href = "https://store.steampowered.com/curator/7026798-Choice-of-Games/";
     } else {
       try {
         if (window.isChromeApp) {
           window.open("https://www.choiceofgames.com/category/our-games/");
+        } else if (window.isHeartsChoice) {
+          window.location.href = "https://www.heartschoice.com/shop/";
         } else {
           window.location.href = "https://www.choiceofgames.com/category/our-games/";
         }
@@ -3617,16 +3987,9 @@ function printShareLinks(target, now) {
         mobileMesg = "  <li><a href='choiceofgamesnook://"+window.nookEan+"'>Rate this app</a> in the Nook App Store</li>\n";
       }
     } else if (androidLink) {
-      androidUrl = androidLink.href;
+      androidUrl = getAndroidReviewLink();
       if (androidUrl) {
-        if (window.isAmazonAndroidApp) {
-          var package = /id=([\.\w]+)/.exec(androidUrl)[1];
-          androidUrl = "http://www.amazon.com/gp/mas/dl/android?p="+package+"&t=choofgam-20&ref=rate";
-          mobileMesg = "  <li><a href='"+androidUrl+"'>Rate this app</a> in the Amazon Appstore</li>\n";
-        } else {
-          mobileMesg = "  <li><a href='"+androidUrl+"'>Rate this app</a> in the Google Play Store</li>\n";
-        }
-
+        mobileMesg = "  <li><a href='"+androidUrl+"'>Rate this app</a> in the Google Play Store</li>\n";
       }
     }
   } else if (/webOS/.test(navigator.userAgent) && window.isFile) {
@@ -3670,9 +4033,9 @@ function printShareLinks(target, now) {
   var title = encodeURIComponent(document.title);
   var dataUriSupported = !/MSIE [67]/.test(navigator.userAgent);
 
-  var shareLinkText = '<li>'+(dataUriSupported?'<img height="16" width="16" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAACNFBMVEUAAAD///8ASZIASpIKTI0KSIcWSX5lgZ1YcIhYbYIAUpsHTpAhVIEAWaUAWaIAVp4AU5wAVJsAVJgAUpYAUpUBWaQWU4cAYqoAXqUAW6MAXKMAWqIAXKAFXZ8IWZZihZ8AbrgAbrcAaK0AZaoDbLIFZakGZqoKbrMAb7gAbrYBc7tsm7mizecge62izuiizeYBbqgId7INh8QQdqgXg7kVeK0fgLROm8Kh0uyducgRf7QXi8MvlcRTrNdZsdlvt9qDs8l/0O2v4/aY2u7j9/2/6fP4/f7s+/32/f71/f7t/P34/v76/v77/v76/f38/v7q7Oz9/v75/vvf8eX1/vjq/fDP+9zr/fDq/e+/9Mrq/e7E+Mxm3HN24YSC3YwTwSMUtSIXuycavikfxi4izDIhyTAhyTE8ykoauiclxjEowDUsxDYPthgsxTUDyQgg2iQ08jk43z3Q9tHP9dAA0gAA0QAA0AAAzwAAwQAAvAAAuwEAtAEAswAArAAB0AEBxQIBrAEC1AICtwMDvQUF1AUJ2QkL3wwL2gsKygwKwgsMxQwO3w4T6BMZ6xko7ChH3kdDyUN623qE64R8znx1wnX+/v79/f38/Pz7+/v6+vr5+fn4+Pj39/f29vby8vLx8fHq6urp6eno6Ojl5eXj4+Pg4ODf39/W1tbMzMzGxsbFxcXDw8PCwsKvr6+urq6srKypqamoqKiUlJSSkpKQkJCKioqIiIiHh4eGhoZ+fn5xcXFwcHBUP7YxAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH1wgUDigoTpImZAAAARtJREFUGNMBEAHv/gABAQEBlZeanJ2dm5iVAQEBAAGYAZVyknGMho+RpJ+YlQEAAQGVc3CNi4WBdXSIqKGalQABlXOOh4R+dnV3d3pTrKKZAJVyb39fY2ZlZG54eVc5q6AAlpODWUtHR0pPVoJ7WC8HqACZkG2VPSclJjeVaH1VLAyvAJuJbFREQj4TLZVqfVouFLIAnIqAaV1bTDU2lWt8WDgStgCclGJhYFxRMzFJXmdSPxa3AJpQTU9PRkMVDUFITkUkCLMAmKM8NDowESMYIjI7HAW7sACVn0AqISkgKCEoFwoLCLWpAAGapSsdDxsaGQ4QBAi5rqYAAZWep64fHgIDBgm6ta2nngABAZeepqqxtLi4s7Cppp6XR0lhOIfKM38AAAAASUVORK5CYII=">':"")+
-        ' <a href="http://www.stumbleupon.com/submit?url='+url+'&amp;title='+title+'" class="spacedLink">StumbleUpon</a></li>'+
+  var twitterHandle = window.isHeartsChoice ? "heartschoice" : "choiceofgames";
 
+  var shareLinkText =
         '<li>'+(dataUriSupported?'<img height="16" width="16" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAsklEQVQ4EWNgoBAwgvQnVq75f+vBG5KMUlMQYZjfHsLIBNJFqmZkPSzEWKsqL8zQXebJICLIDVZuEzUTrg3sAjgPBwNZM7oSolyAzWaYQUS5AKYYG43XBUeWpaPogfGRwwCvAW/efwUbAPMCjI9sKl4DArKXgNXCbIbxkQ2gOAwoNgDsBS5ONgYNJTFkl2FlG2nLwMVv3HsFZlPHBTLifAznrj6Bm47OQI42mBwoM1EFAAAnVCliRFKHdQAAAABJRU5ErkJggg==">':"")+
         ' <a href="http://www.facebook.com/sharer.php?u='+url+'&amp;t='+title+'"'+
         'onclick="if (window.isFile || window.isXul) return true; '+
@@ -3680,7 +4043,7 @@ function printShareLinks(target, now) {
         '&quot;,&quot;sharer&quot;,&quot;toolbar=0,status=0,width=626,height=436&quot;);return false;" class="spacedLink">Facebook</a></li>'+
 
         '<li>'+(dataUriSupported?'<img height="16" width="16" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAAB/ElEQVQ4EYVTO24UQRB9/dmZkdfCIK0QBhMACQdwgDgMN4AEiYALcAFy7kNABkYkGzhAWMa2DHg9n+7iVfXMaAmAknp7tuvVq1dV3Q6j9SlJlzLEOXgIPPcmRjf5/7ZHdWQRaVPCOjucDYJlcHi8AFLOErz/J4kRQASXGfjYDmhIeDwAKx9xBzz8jxUCgjqSfE8CPWi5EpeTjOu+F36CVcGxrEBBMVDiaDOB5vqVBQu6WAU+dQmnwZuGwkACstxlRDckqWIhMQLPOtfXvfw0AmfA95thqwBNWGg04PktLbTYrEAlXxJTEciemtd+KdvZf7ESTjipEyaazAgyu/2lTTjP2ZpICZZQYSp7gg8kelh5PFj4Kd56ZvhE2IUSMOMVm/niZoPDOqJl0FSAYlYhoNoabSmBiI5pVNouv39w32G3l05wIwaqKRq00XErWGWYFvXz3uAbA4+51lyf+wy9h0JVRqAgfmehc8vmJt7n/CrKP6J81fzqfIPTVOOAo+S9soko+GkzhxgNocUkDfLmosPrsyvwtpTDP5KRWBz2Of4PB3vYr8o9mNuZncfLvRrPdmveJJVNDn0G8yKUMV/pO+p16MVmAn00yvnu9g7erpZ4xAbUrFtXMy42AE9YwmHNxo42lzAd6AtMQ48NgjVVOz+BVNQ9Zql4UI9P/TehBOJIi+EJIAAAAABJRU5ErkJggg==">':"")+
-        ' <a href="https://twitter.com/intent/tweet?related=choiceofgames&amp;text=Awesome+game%3A+'+title+'&amp;url='+url+'&amp;via=choiceofgames" class="spacedLink">Twitter</a></li>';
+        ' <a href="https://twitter.com/intent/tweet?related='+twitterHandle+'&amp;text='+title+'&amp;url='+url+'&amp;via='+twitterHandle+'" class="spacedLink">Twitter</a></li>';
 
   var nowMsg = "";
   if (now) nowMsg = "<p>Please support our work by sharing this game with friends!  The more people play, the more resources we'll have to work on the next game.</p>";
@@ -3708,6 +4071,71 @@ function shareAction(e) {
 
 function isReviewSupported() {
   return !!(window.isIosApp || window.isAndroidApp);
+}
+
+function promptForReview() {
+  var store;
+  target = document.getElementById('text');
+  function printMessage(store) {
+    println("Please post a review of this game on "+store+". It really helps.[n/]", target);
+  }
+  var anchorText = "Review This Game";
+  var href;
+  if (window.isSteamApp) {
+    printMessage("Steam");
+    return printLink(target, "#", anchorText, function(e) {
+      preventDefault(e);
+      try {
+        purchase("adfree", function() {});
+      } catch (x) {}
+      return false;
+    });
+  } else if (window.isIosApp) {
+    println("Please post a review of this version of the game on the App Store. It really helps.[n/]", target);
+    return printLink(target, "#", anchorText, function(e) {
+      preventDefault(e);
+      try {
+        callIos("reviewapp");
+      } catch (x) {}
+      return false;
+    });
+  } else if (window.isAndroidApp) {
+    href = getAndroidReviewLink();
+    if (window.isAmazonAndroidApp) {
+      printMessage("Amazon's Appstore");
+    } else {
+      printMessage("the Google Play Store");
+    }
+  } else if (window.isChromeApp) {
+    href = document.getElementById('chromeLink').href;
+  }
+  
+  printLink(target, href, anchorText);
+}
+
+function getAndroidReviewLink() {
+  var href = document.getElementById('androidLink').href;
+  var package = /id=([\.\w]+)/.exec(href)[1];
+  // TODO legacy hosted
+  if (window.isOmnibusApp) {
+    var omnibus;
+    if (/^org\.hostedgames/.test(package)) {
+      omnibus = "org.hostedgames.omnibus";
+    } else if (/^com\.heartschoice/.test(package)) {
+      omnibus = "com.heartschoice.o";
+    } else {
+      omnibus = "com.choiceofgames.omnibus";
+    }
+    if (window.isAmazonAndroidApp) {
+      return "http://www.amazon.com/gp/mas/dl/android?p="+omnibus+"&t=choofgam-20&ref=rate"
+    } else {
+      return "https://play.google.com/store/apps/details?id="+omnibus+"&referrer=utm_medium%3Dweb%26utm_source%3D"+window.storeName+"Game";
+    }
+  } else if (window.isAmazonAndroidApp) {
+    return "http://www.amazon.com/gp/mas/dl/android?p="+package+"&t=choofgam-20&ref=rate";
+  } else {
+    return href;
+  }
 }
 
 function isFollowEnabled() {
@@ -3777,9 +4205,10 @@ function subscribe(target, options, callback) {
   }
   var mailToSupported = isMobile && !window.isMacApp;
   if (window.isAndroidApp) mailToSupported = urlSupport.isSupported("mailto:support@choiceofgames.com");
+  var domain = window.isHeartsChoice ? "heartschoice.com" : "choiceofgames.com";
   if (mailToSupported) {
     subscribeByMail(target, options, callback, function() {
-      window.location.href = "mailto:subscribe-"+window.storeName+"-"+platformCode() + "@choiceofgames.com?subject=Sign me up&body=Please notify me when the next game is ready.";
+      window.location.href = "mailto:subscribe-"+window.storeName+"-"+platformCode() + "@"+domain+"?subject=Sign me up&body=Please notify me when the next game is ready.";
     });
     return;
   }
@@ -3802,7 +4231,8 @@ function subscribe(target, options, callback) {
       window["jsonp"+timestamp] = function(response) {
         clearTimeout(timeout);
         if (response.result == "error") {
-          document.getElementById("errorMessage").innerHTML = response.msg;
+          var errElement = document.getElementById("errorMessage");
+          if (errElement) errElement.innerHTML = response.msg;
         } else {
           clearScreen(function() {
             target = document.getElementById('text');
@@ -3817,7 +4247,8 @@ function subscribe(target, options, callback) {
           });
         }
       };
-      var mailParams = "u=eba910fddc9629b2810db6182&id=e9cdee1aaa&SIGNUP="+window.storeName+"-"+platformCode()+"&EMAIL="+encodeURIComponent(email);
+      var listId = window.isHeartsChoice ? "fa4134344b" : "e9cdee1aaa";
+      var mailParams = "u=eba910fddc9629b2810db6182&id="+listId+"&SIGNUP="+window.storeName+"-"+platformCode()+"&EMAIL="+encodeURIComponent(email);
       if (window.isChromeApp) {
         chrome.permissions.contains({origins: ["http://choiceofgames.us4.list-manage.com/"]},function(isXhrAllowed) {
           if (isXhrAllowed) {
@@ -3873,7 +4304,7 @@ function subscribe(target, options, callback) {
           };
           xhr.send();
         } else {
-          script.src = 'http://choiceofgames.us4.list-manage.com/subscribe/post-json?'+mailParams+'&c=jsonp' + timestamp;
+          script.src = 'https://choiceofgames.us4.list-manage.com/subscribe/post-json?'+mailParams+'&c=jsonp' + timestamp;
           head.appendChild(script);
         }
       }
@@ -3883,7 +4314,7 @@ function subscribe(target, options, callback) {
 
 function downloadLink(e) {
   if (e && e.preventDefault) e.preventDefault();
-  if (window.releaseDate && new Date() < window.releaseDate) {
+  if (isPrerelease()) {
     return asyncAlert("You'll need to wait until after the game is released on " + window.releaseDate);
   }
   clearScreen(function() {
@@ -3953,8 +4384,11 @@ function cacheKnownPurchases(knownPurchases) {
     if (email) window.store.set("knownPurchases"+email.replace(/[^A-z0-9]/g, "_"), JSON.stringify(window.knownPurchases));
   })
   if (window.isIosApp) {
-    callIos("updateadfree", output.adfree);
+    callIos("cachepurchases", knownPurchases);
   } else if (window.isAndroidApp) {
+    if (window.isOmnibusApp) {
+      androidBilling.cachePurchases(JSON.stringify(knownPurchases));
+    }
     androidBilling.updateAdfree(!!output.adfree);
   }
 }
@@ -3962,7 +4396,7 @@ function cacheKnownPurchases(knownPurchases) {
 // Callback expects a map from product ids to booleans
 function checkPurchase(products, callback) {
   function publishPurchaseEvents(purchases) {
-    if (window.purchaseSubscriptions) {
+    if (purchases && window.purchaseSubscriptions) {
       for (var key in purchaseSubscriptions) {
         if (purchases[key]) purchaseSubscriptions[key].call();
       }
@@ -4002,6 +4436,7 @@ function checkPurchase(products, callback) {
   }
 
   function mergeKnownPurchases(purchases) {
+    window.checkPurchaseCallback = null;
     checkWebPurchases(function(ok, knownPurchases) {
       if (knownPurchases) {
         var productList = products.split(/ /);
@@ -4014,13 +4449,21 @@ function checkPurchase(products, callback) {
     });
   }
 
-  var i;
+  var i, oldCallback;
   if (window.isIosApp) {
-    window.checkPurchaseCallback = mergeKnownPurchases;
-    callIos("checkpurchase", products);
+    oldCallback = window.checkPurchaseCallback;
+    window.checkPurchaseCallback = function (purchases) {
+      if (oldCallback) oldCallback(purchases);
+      mergeKnownPurchases(purchases);
+    }
+    if (!oldCallback) callIos("checkpurchase", products);
   } else if (window.isAndroidApp && !window.isNookAndroidApp) {
-    window.checkPurchaseCallback = mergeKnownPurchases;
-    androidBilling.checkPurchase(products);
+    oldCallback = window.checkPurchaseCallback;
+    window.checkPurchaseCallback = function (purchases) {
+      if (oldCallback) oldCallback(purchases);
+      mergeKnownPurchases(purchases);
+    }
+    if (!oldCallback) androidBilling.checkPurchase(products);
   } else if (window.isWinOldApp) {
     safeTimeout(function() {
       var purchases = eval(window.external.CheckPurchase(products));
@@ -4065,6 +4508,15 @@ function checkPurchase(products, callback) {
     purchases.billingSupported = true;
     publishPurchaseEvents(purchases);
     safeTimeout(function() {callback("ok", purchases);}, 0);
+  } else if (window.beta === "beta") {
+    var productList = products.split(/ /);
+    var purchases = {};
+    for (i = 0; i < productList.length; i++) {
+      purchases[productList[i]] = true;
+    }
+    purchases.billingSupported = true;
+    publishPurchaseEvents(purchases);
+    safeTimeout(function () { callback("ok", purchases); }, 0);
   } else if (isWebPurchaseSupported()) {
     checkWebPurchases(function(ok, knownPurchases) {
       callback(ok, knownPurchases);
@@ -4083,7 +4535,8 @@ function checkPurchase(products, callback) {
 }
 
 function isWebPurchaseSupported() {
-  return window.isSecureWeb && isWebSavePossible() && window.stripeKey;
+  var enableBilling = (typeof window.enableBilling === 'undefined' || window.enableBilling)
+  return enableBilling && isWebSavePossible() && !!window.stripeKey;
 }
 
 function isRestorePurchasesSupported() {
@@ -4095,10 +4548,19 @@ function restorePurchases(product, callback) {
     var purchased = window.knownPurchases && window.knownPurchases[product];
     if (!purchased) {
       if (window.isAndroidApp) {
-        asyncAlert("Restore completed. This product is not yet purchased. Sometimes purchases can fail to restore for reasons outside our control. If you have already purchased this product, try uninstalling and reinstalling the app. If that doesn't work, please email a copy of your receipt to " + getSupportEmail() + " and we'll find a way to help you.");
+        return asyncAlert("Restore completed. This product is not yet purchased. "+
+          "Sometimes purchases can fail to restore for reasons outside our control. "+
+          "If you have already purchased this product, try uninstalling and reinstalling the app. "+
+          "If that doesn't work, please email a copy of your receipt to " + getSupportEmail() + " "+
+          "and we'll find a way to help you.", function() {
+            callback(purchased);
+          });
       } else {
         asyncAlert("Restore completed. This product is not yet purchased.");
       }
+    } else {
+      refreshIfAppUpdateReady();
+      updateAllPaidSceneCaches();
     }
     callback(purchased);
   }
@@ -4107,24 +4569,225 @@ function restorePurchases(product, callback) {
     if (product) {
       checkPurchase(product, function(ok, purchases) {
         if (purchases[product]) {
-          callback("purchased");
-        } else {
-          clearScreen(function() {
-            var target = document.getElementById('text');
-            if (error) {
-              target.innerHTML="<p>Restore failed. Please try again later, or sign in to Choiceofgames.com to restore purchases.</p>";
-            } else {
-              target.innerHTML="<p>Restore completed. This product is not yet purchased. You may also sign in to Choiceofgames.com to restore purchases.</p>";
-            }
-            loginForm(document.getElementById('text'), /*optionality*/1, /*err*/null, webRestoreCallback);
-            curl();
-          });
+          return callback("purchased");
         }
+
+        if (window.isOmnibusApp && (window.purchaseTransfer || window.omnibusSupportsTransfer)) {
+          var appId = getAppId();
+          if (window.isAndroidApp || (window.isIosApp && (appId !== "1363309257" && appId !== "1302297731"))) {
+            return omnibusRestore(appId);
+          }
+        }
+
+        clearScreen(function() {
+          isRegistered(function (registered) {
+            if (registered) {
+              startLoading();
+              xhrAuthRequest("GET", "get-purchases", function(ok, response) {
+                doneLoading();
+                if (ok) {
+                  cacheKnownPurchases(response);
+                  webRestoreCallback();
+                } else {
+                  if (response.error === "not registered") {
+                    logout();
+                    secondaryRestore("error");
+                  } else {
+                    asyncAlert("There was an error restoring purchases. (Your network connection may be down.) Please try again later.");
+                    callback();
+                  }
+                }
+              });
+            } else {
+              var target = document.getElementById('text');
+              if (error) {
+                target.innerHTML="<p>Restore failed. Please try again later, or sign in to Choiceofgames.com to restore purchases.</p>";
+              } else {
+                target.innerHTML="<p>Restore completed. This product is not yet purchased. You may also sign in to Choiceofgames.com to restore purchases.</p>";
+              }
+              loginForm(document.getElementById('text'), /*optionality*/1, /*err*/null, webRestoreCallback);
+              curl();
+            }
+          })
+        });
       });
     } else {
       callback();
     }
   }
+  function omnibusRestore(appId) {
+    var omnibus = "Choice of Games";
+    var canonical = document.querySelector("link[rel=canonical]");
+    var canonicalHref = canonical && canonical.getAttribute("href");
+    if (/\/user-contributed\//.test(canonicalHref)) {
+      omnibus = "Hosted Games";
+    }
+    var appStore = window.isIosApp ? "App Store"
+      : window.isAmazonAndroidApp ? "Amazon Appstore"
+      : "Google Play Store";
+    var gameTitle = document.querySelector(".gameTitle").textContent;
+
+    clearScreen(function() {
+      printParagraph("Restore completed. "+appStore+" records indicate that "+
+        "you have not purchased this product using the \""+omnibus+"\" app, "+
+        "but you may have purchased the product in the \""+gameTitle+"\" app, "+
+        "or on our website at Choiceofgames.com.");
+
+      options = [
+        {name:"Restore purchases from Choiceofgames.com.", group:"choice", webRestore:true},
+        {name:"Restore purchases using the \""+gameTitle+"\" app.", group:"choice", transfer:true},
+      ];
+
+      printOptions([""], options, function(option) {
+        if (option.webRestore) {
+          clearScreen(function() {
+            isRegistered(function (registered) {
+              if (registered) {
+                startLoading();
+                xhrAuthRequest("GET", "get-purchases", function(ok, response) {
+                  doneLoading();
+                  if (ok) {
+                    cacheKnownPurchases(response);
+                    webRestoreCallback();
+                  } else {
+                    if (response.error === "not registered") {
+                      logout();
+                      printParagraph("Sign in to Choiceofgames.com to restore purchases.");
+                      loginForm(document.getElementById('text'), /*optionality*/1, /*err*/null, webRestoreCallback);
+                    } else {
+                      asyncAlert("There was an error restoring purchases. (Your network connection may be down.) Please try again later.");
+                      callback();
+                    }
+                  }
+                });
+              } else {
+                printParagraph("Sign in to Choiceofgames.com to restore purchases.");
+                loginForm(document.getElementById('text'), /*optionality*/1, /*err*/null, webRestoreCallback);
+              }
+            });
+          });
+        } else {
+          var transferAttempted = false;
+          var transferPurchaseCallback = function(result) {
+            window.transferPurchaseCallback = null;
+            clearScreen(function() {
+              var transferPlatform = window.isIosApp ? "ios" : "android";
+
+              if (result === "launch_failed") {
+                if (!transferAttempted) {
+                  transferAttempted = true;
+                  printParagraph(
+                    "The \""+gameTitle+"\" app is not installed on your current device. To transfer "+
+                    "purchases from another app, you'll need to install the \""+gameTitle+"\" app and "+
+                    "this \""+omnibus+"\" app at the same time."
+                  );
+                } else {
+                  printParagraph(
+                    "The \""+gameTitle+"\" app is not responding. Try uninstalling and reinstalling "+
+                    "the \""+gameTitle+"\" app and trying again.");
+                  printParagraph("Sometimes purchases can fail to "+
+                    "restore for reasons outside our control. If you have already purchased "+
+                    "this product, please email a copy of your receipt to "+
+                    "[url=mailto:"+transferPlatform+"-transfer-"+storeName+"-missing@choiceofgames.com]"+transferPlatform+"-transfer-"+storeName+"-missing@choiceofgames.com[/url] and we'll find a way to help "+
+                    "you."
+                  );
+                }
+
+                var appLink = window.isIosApp ? "https://itunes.apple.com/app/id"+appId
+                  : window.isAmazonAndroidApp ? "https://www.amazon.com/gp/mas/dl/android?p="+appId
+                  : "https://play.google.com/store/apps/details?id="+appId;
+                printParagraph("[url="+appLink+"]Download "+gameTitle+" from the "+appStore+"[/url]");
+
+                printOptions([""], [
+                  {name:"I've installed the \""+gameTitle+
+                    "\" app. Try restoring purchases again.", group:"choice", retry:true},
+                  {name:"Cancel.", group:"choice"},
+                ], function (option) {
+                  if (option.retry) {
+                    window.transferPurchaseCallback = transferPurchaseCallback;
+                    startLoading();
+                    window.isIosApp ? callIos("transferpurchase") : purchaseTransfer.requestTransfer(appId);
+                  } else {
+                    callback(!"purchased");
+                  }
+                });
+                curl();
+              } else if (result === "done") {
+                checkPurchase(product, function(ok, purchases) {
+                  if (purchases[product]) {
+                    callback("purchased");
+                  } else {
+                    printParagraph("Restore completed. "+appStore+" records indicate that you have not purchased "+
+                    "this product in the \""+gameTitle+"\" app.");
+                    printParagraph("Sometimes purchases can fail to restore for reasons outside our control. If you "+
+                    "have already purchased this product, please email a copy of your receipt "+
+                    "to [url=mailto:"+transferPlatform+"-transfer-"+storeName+"-failed@choiceofgames.com]"+transferPlatform+"-transfer-"+storeName+"-failed@choiceofgames.com[/url] and we'll find a "+
+                    "way to help you.");
+                    var target = document.getElementById('text');
+                    printButton("Next", target, false, function() {
+                      callback(!"purchased");
+                    });
+                    curl();
+                  }
+                });
+              } else { // result === "error"
+                printParagraph("Restore failed. Please try again later. If this error "+
+                  "persists, please contact [url=mailto:"+transferPlatform+"-transfer-"+storeName+"-error@choiceofgames.com]"+transferPlatform+"-transfer-"+storeName+"-error@choiceofgames.com[/url] "+
+                  "and we'll find a way to help you.")
+                printOptions([""], [
+                  {name:"Try again now.", group:"choice", retry:true},
+                  {name:"Cancel.", group:"choice"},
+                ], function(option) {
+                  if (option.retry) {
+                    window.transferPurchaseCallback = transferPurchaseCallback;
+                    clearScreen(function() {
+                      startLoading();
+                      window.isIosApp ? callIos("transferpurchase") : purchaseTransfer.requestTransfer(appId);
+                    });
+                  } else {
+                    callback(!"purchased");
+                  }
+                });
+                curl();
+              }
+            });
+          }
+          if (window.isIosApp) {
+            startLoading();
+            window.transferPurchaseCallback = transferPurchaseCallback;
+            callIos("transferpurchase");
+          } else {
+            isRegistered(function(registered) {
+              if (registered) {
+                window.transferPurchaseCallback = transferPurchaseCallback;
+                clearScreen(function() {
+                  startLoading();
+                  purchaseTransfer.requestTransfer(appId);
+                });
+              } else {
+                clearScreen(function() {
+                  printParagraph("To restore purchases in the "+omnibus+" app using the "+gameTitle+" app, you'll first need to sign in using a Choiceofgames.com account.");
+                  loginForm(document.getElementById('text'), /*optionality*/1, /*err*/null, function(ok) {
+                    if (ok) {
+                      window.transferPurchaseCallback = transferPurchaseCallback;
+                      clearScreen(function() {
+                        startLoading();
+                        purchaseTransfer.requestTransfer(appId);
+                      });
+                    } else {
+                      webRestoreCallback();
+                    }
+                  });
+                });
+              }
+            });
+          }
+        }
+      });
+      curl();
+    });
+  }
+
   if (window.isIosApp) {
     window.restoreCallback = secondaryRestore;
     callIos("restorepurchases");
@@ -4145,13 +4808,19 @@ function restorePurchases(product, callback) {
                 "Please refresh this page to try again, or contact " + getSupportEmail() + " for assistance.", 15000);
             }
           }
-          webRestoreCallback();
+          logout();
+          restorePurchases(product, callback);
         });
       } else {
         clearScreen(function() {
           var target = document.getElementById('text');
           target.innerHTML="<p>Please sign in to Choiceofgames.com to restore purchases.</p>";
-          if (window.steamRestore) {
+          var steamRestore = false;
+          var steamLink = document.getElementById('steamLink');
+          if (steamLink && steamLink.href && !/INSERTINSERTINSERT/.test(steamLink.href)) {
+            steamRestore = true;
+          }
+          if (steamRestore) {
             window.steamRestoreCallback = function(response) {
               window.steamRestoreCallback = null;
               if (response) cacheKnownPurchases(response);
@@ -4170,12 +4839,14 @@ function restorePurchases(product, callback) {
 // Callback expects a localized string, or "", or "free", or "guess"
 function getPrice(product, callback) {
   if (window.isIosApp) {
+    checkForAppUpdates();
     window.priceCallback = callback;
     callIos("price", product);
   } else if (window.isAndroidApp) {
     window.priceCallback = callback;
     androidBilling.getPrice(product);
   } else if (window.isWeb) {
+    checkForAppUpdates();
     if (window.productData && window.productData[product] && window.productData[product].amount) {
       safeTimeout(function () {
         callback.call(this, "$"+(productData[product].amount/100));
@@ -4217,14 +4888,39 @@ function getPrice(product, callback) {
 function purchase(product, callback) {
   var purchaseCallback = function() {
     window.purchaseCallback = null;
+    refreshIfAppUpdateReady();
+    updateAllPaidSceneCaches();
     safeCall(null, callback);
     if (window.purchaseSubscriptions && purchaseSubscriptions[product]) {
       purchaseSubscriptions[product].call();
     }
   };
   if (window.isIosApp) {
-    window.purchaseCallback = purchaseCallback;
-    callIos("purchase", product);
+    if (!window.purchaseRequiresLogin || window.registered) {
+      window.purchaseCallback = purchaseCallback;
+      return callIos("purchase", product);
+    } else {
+      clearScreen(function() {
+        var target = document.getElementById('text');
+        target.innerHTML="<p>Please sign in to Choiceofgames.com to purchase.</p>";
+        loginForm(target, /*optional*/1, /*err*/null, function(registered){
+          if (registered) {
+            if (window.knownPurchases && window.knownPurchases[product]) {
+              purchaseCallback();
+            } else {
+              clearScreen(function() {loadAndRestoreGame("", window.forcedScene);});
+              window.doneLoadingCallback = function() {
+                window.purchaseCallback = purchaseCallback;
+                callIos("purchase", product);
+              }
+            }
+          } else {
+            clearScreen(function() {loadAndRestoreGame("", window.forcedScene);});
+          }
+        });
+        curl();
+      });
+    }
   } else if (window.isAndroidApp) {
     window.purchaseCallback = purchaseCallback;
     var androidStackTrace = androidBilling.purchase(product);
@@ -4239,7 +4935,7 @@ function purchase(product, callback) {
   } else if (window.isCef) {
     cefQuerySimple("Purchase " + product);
     // no callback; we'll refresh on purchase
-  } else if (window.isWeb && product == window.appPurchase) {
+  } else if (window.isWeb && !isPrerelease() && product == window.appPurchase) {
     var webStoreFallback = function() {
       window.appPurchase = null;
       purchase(product, callback);
@@ -4252,15 +4948,8 @@ function purchase(product, callback) {
       window.location.href = href;
     };
     
-    // instead of IAP, send the user to a store
-    if (/(iPhone OS|iPad)/.test(navigator.userAgent)) {
-      if (/iPhone OS [456]_/.test(navigator.userAgent)) {
-        // ancient versions of iOS can't use our app
-        webStoreFallback();
-      } else {
-        clickLink("iphoneLink");
-      }
-    } else if (/Silk/.test(navigator.userAgent)) {
+    // instead of IAP, send Android users to a store
+    if (/Silk/.test(navigator.userAgent)) {
       clickLink("kindleLink");
     } else if (/Android/.test(navigator.userAgent)) {
       clickLink("androidLink");
@@ -4295,15 +4984,15 @@ function purchase(product, callback) {
                 } else if (/^card error: /.test(response.error)) {
                   var cardError = response.error.substring("card error: ".length);
                   asyncAlert(cardError);
-                  clearScreen(loadAndRestoreGame);
+                  clearScreen(function() {loadAndRestoreGame("", window.forcedScene);});
                 } else if ("purchase already in flight" == response.error) {
                   asyncAlert("Sorry, there was an error handling your purchase. Please wait five minutes and try again, or contact support@choiceofgames.com for assistance.");
-                  clearScreen(loadAndRestoreGame);
+                  clearScreen(function() {loadAndRestoreGame("", window.forcedScene);});
                 } else {
                   asyncAlert("Sorry, there was an error processing your card. (Your "+
                     "network connection may be down.) Please refresh the page and try again, or contact "+
                     "support@choiceofgames.com for assistance.");
-                  clearScreen(loadAndRestoreGame);
+                  clearScreen(function() {loadAndRestoreGame("", window.forcedScene);});
                 }
                 curl();
               }, "stripeToken", response.id, "product", fullProductName, "key", window.stripeKey);
@@ -4327,11 +5016,11 @@ function purchase(product, callback) {
           if (window.knownPurchases && window.knownPurchases[product]) {
             purchaseCallback();
           } else {
-            clearScreen(loadAndRestoreGame);
+            clearScreen(function() {loadAndRestoreGame("", window.forcedScene);});
             return stripe();
           }
         } else {
-          clearScreen(loadAndRestoreGame);
+          clearScreen(function() {loadAndRestoreGame("", window.forcedScene);});
         }
       });
       curl();
@@ -4394,6 +5083,18 @@ function handleDiscountResponse(ok, response) {
   }
 }
 
+function isPrerelease() {
+  var steamTrial = window.isSteamApp && window.isTrial;
+  if (typeof window != "undefined" && (window.isWeb || steamTrial) && window.releaseDate) {
+    if (new Date() > window.releaseDate.getTime()) return false;
+    if (/(fullaccess|preview)@choiceofgames.com/.test(getCookieByName("login"))) return false;
+    var identity = document.getElementById("identity");
+    return !(identity && /(fullaccess|preview)@choiceofgames.com/.test(identity.innerHTML));
+  } else {
+    return false;
+  }
+}
+
 function registerNativeAchievement(name) {
   if (window.blockNativeAchievements) return;
   if (window.isIosApp) {
@@ -4412,10 +5113,14 @@ function registerNativeAchievement(name) {
 }
 
 function achieve(name, title, description) {
-  if (initStore()) window.store.set("achieved", toJson(nav.achieved));
+  if (initStore()) {
+    checkAchievements(function() {
+      window.store.set("achieved", toJson(nav.achieved));
+    })
+  }
   registerNativeAchievement(name);
-  // iOS shows a prominent banner; no need to show our own
-  if (window.isIosApp) return;
+  // Game Center shows a prominent banner; no need to show our own
+  if (window.isIosApp && !window.isOmnibusApp) return;
   var escapedTitle = title+"".replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -4485,6 +5190,8 @@ function checkAchievements(callback) {
               });
             })(i);
           }
+        } else {
+          safeTimeout(function() {checkAchievements(callback);}, 100);
         }
       } else if (window.isMacApp && window.macAchievements) {
         alreadyLoadingAchievements = !!window.checkAchievementCallback;
@@ -4528,11 +5235,12 @@ function checkAchievements(callback) {
 }
 
 function isAdvertisingSupported() {
-  return typeof window != "undefined" && (window.isIosApp || window.isAndroidApp);
+  if (typeof window === "undefined") return false;
+  return (window.isIosApp || window.isAndroidApp || window.adSupportedDebug);
 }
 
 function isFullScreenAdvertisingSupported() {
-  return window.isIosApp || window.isAndroidApp;
+  return isAdvertisingSupported();
 }
 
 function showFullScreenAdvertisement(callback) {
@@ -4542,9 +5250,29 @@ function showFullScreenAdvertisement(callback) {
   } else if (window.isAndroidApp && window.adBridge) {
     adBridge.displayFullScreenAdvertisement();
     safeTimeout(callback, 0);
+  } else if (window.adSupportedDebug) {
+    alert("ad!");
+    safeTimeout(callback, 0);
   } else {
     safeTimeout(callback, 0);
   }
+}
+
+function showFullScreenAdvertisementButton(buttonName, skipCallback, doneCallback) {
+  if (typeof isFullScreenAdvertisingSupported == "undefined" || !isFullScreenAdvertisingSupported()) {
+    return skipCallback();
+  }
+  startLoading();
+  checkPurchase("adfree", function (ok, result) {
+    doneLoading();
+    if (result.adfree) {
+      skipCallback();
+    } else {
+      printButton(buttonName, main, false, function () {
+        showFullScreenAdvertisement(doneCallback);
+      })
+    }
+  });
 }
 
 function showTicker(target, endTimeInSeconds, finishedCallback) {
@@ -4680,7 +5408,7 @@ function kindleButton(target, query, buttonName) {
   );
 }
 
-function printInput(target, inputType, callback, minimum, maximum, step) {
+function printInput(target, inputOptions, callback, minimum, maximum, step) {
     if (!target) target = document.getElementById('text');
     var form = document.createElement("form");
     target.appendChild(form);
@@ -4688,13 +5416,13 @@ function printInput(target, inputType, callback, minimum, maximum, step) {
     form.action="#";
 
 
-    if (inputType == "textarea") {
+    if (inputOptions.long) {
       var input = document.createElement("textarea");
       input.setAttribute("rows", 4);
     } else {
       var input = document.createElement("input");
-      input.setAttribute("type", inputType);
-      if (inputType == "number") {
+      if (inputOptions.numeric) {
+        input.setAttribute("type", "number");
         input.setAttribute("min", minimum);
         input.setAttribute("max", maximum);
         step = step || "any";
@@ -4702,15 +5430,15 @@ function printInput(target, inputType, callback, minimum, maximum, step) {
       }
     }
 
+    input.setAttribute("autocomplete", "off");
+
     input.name="text";
     input.setAttribute("style", "font-size: 25px; width: 90%;");
     form.appendChild(input);
 
     form.onsubmit = function(e) {
         preventDefault(e);
-        if (!input.value) {
-            // TODO optional value?
-            // TODO configurable error message?
+        if (!input.value && !inputOptions.allow_blank) {
             asyncAlert("Don't just leave it blank!  Type something!");
             return;
         }
@@ -4726,8 +5454,6 @@ function printInput(target, inputType, callback, minimum, maximum, step) {
         return false;
     };
 
-    form.appendChild(document.createElement("br"));
-    form.appendChild(document.createElement("br"));
     printButton("Next", form, true);
 
 }
@@ -4855,7 +5581,7 @@ function loginForm(target, optional, errorMessage, callback) {
           ((isWeb && window.facebookAppId)?"<label for=facebook><input type=radio name=choice value=facebook id=facebook> Sign in with Facebook.</label>":"")+
           ((isWeb && window.googleAppId)?"<label for=google><input type=radio name=choice value=google id=google> Sign in with Google.</label>":"")+
           (optional ? "<label for=no><input type=radio name=choice value=no id=no> Cancel.</label>" : "") +
-          "</div><br>";
+          "</div>";
 
         var labels = form.getElementsByTagName("label");
         setClass(labels[labels.length-1], "lastChild");
@@ -4920,7 +5646,7 @@ function loginForm(target, optional, errorMessage, callback) {
                 xhrAuthRequest("POST", "facebook-login", function(ok, response){
                   if (ok) {
                     loginDiv(ok, response.email);
-                    recordLogin(ok, response.email);
+                    recordLogin(ok, response.id, response.email);
                     cacheKnownPurchases(response.purchases);
                     safeCall(null, function() {callback("ok");});
                   } else {
@@ -4944,7 +5670,7 @@ function loginForm(target, optional, errorMessage, callback) {
               isRegistered(function(registered) {
                 if (!registered) xhrAuthRequest("POST", "google-login", function(ok, response){
                   loginDiv(ok, response.email);
-                  recordLogin(ok, response.email);
+                  recordLogin(ok, response.id, response.email);
                   cacheKnownPurchases(response.purchases);
                   if (ok) {
                     callback("ok");
@@ -5004,12 +5730,16 @@ function loginForm(target, optional, errorMessage, callback) {
                   if (ok) {
                     target.innerHTML = "";
                     loginDiv(ok, email);
-                    recordLogin(ok, email);
+                    recordLogin(ok, response.id, email);
                     cacheKnownPurchases(response.purchases);
                     // we need another click event so we can launch Stripe in a pop-up
-                    asyncAlert("You have registered successfully.", function() {
-                      safeCall(null, function() {callback("ok");});
-                    })
+                    if (window.isWeb) {
+                      asyncAlert("You have registered successfully.", function() {
+                        safeCall(null, function() {callback("ok");});
+                      });
+                    } else {
+                      return safeCall(null, function() {callback("ok");});
+                    }
                   } else if ("incorrect password" == response.error) {
                     target.innerHTML = "";
                     loginForm(target, optional, 'Sorry, the email address "'+email+'" is already in use. Please type your password below, or use a different email address.', callback);
@@ -5037,12 +5767,16 @@ function loginForm(target, optional, errorMessage, callback) {
                 if (ok) {
                   target.innerHTML = "";
                   loginDiv(ok, email);
-                  recordLogin(ok, email);
+                  recordLogin(ok, response.id, email);
                   cacheKnownPurchases(response.purchases);
                   // we need another click event so we can launch Stripe in a pop-up
-                  asyncAlert("You have registered successfully.", function() {
-                    safeCall(null, function() {callback("ok");});
-                  })
+                  if (window.isWeb) {
+                    asyncAlert("You have registered successfully.", function() {
+                      safeCall(null, function() {callback("ok");});
+                    });
+                  } else {
+                    return safeCall(null, function() {callback("ok");});
+                  }
                 } else if ("unknown email" == response.error) {
                   showMessage('Sorry, we can\'t find a record for the email address "'+email+'". Please try a different email address, or create a new account.');
                 } else if ("incorrect password" == response.error) {
@@ -5112,7 +5846,7 @@ function isRegistered(callback) {
   } else if (initStore()) {
     return window.store.get("login", function(ok, value) {
       safeTimeout(function() {
-        window.registered = ok && value && "false" != value;
+        window.registered = ok && value && "false" != value && "0" != value;
         callback(window.registered);
       }, 0);
     });
@@ -5220,7 +5954,8 @@ function reportBug() {
   alertify.prompt(prompt, function(ok, body) {
     var statMsg = "(unknown)";
     try {
-        statMsg = toJson(window.stats, '\n');
+        var scene = window.stats.scene;
+        statMsg = computeCookie(scene.stats, scene.temps, scene.lineNum, scene.indent);
     } catch (ex) {}
     body += "\n\nGame: " + window.storeName;
     if (window.stats && window.stats.scene) {
@@ -5330,6 +6065,9 @@ function loadPreferences() {
   } else {
     window.animationProperty = "animationName";
   }
+  if (window.isCef || document.getElementsByTagName("audio").length) {
+    delete window.animationProperty;
+  }
 }
 
 window.onerror=function(msg, file, line, stack) {
@@ -5349,13 +6087,18 @@ window.onerror=function(msg, file, line, stack) {
     if (ok) {
         var statMsg = "(unknown)";
         try {
-            statMsg = toJson(window.stats, '\n');
+          var scene = window.stats.scene;
+          statMsg = computeCookie(scene.stats, scene.temps, scene.lineNum, scene.indent);
         } catch (ex) {}
         var body = "What were you doing when the error occured?\n\nError: " + msg;
-        if (window.stats && window.stats.scene && window.stats.scene.name) body += "\nScene: " + window.stats.scene.name;
-        if (file) body += "\nFile: " + file;
-        if (line) body += "\nLine: " + line;
-        if (stack) body += "\nStack: " + stack;
+        body += "\n\nGame: " + window.storeName;
+        if (window.stats && window.stats.scene) {
+          body += "\nScene: " + window.stats.scene.name;
+          body += "\nLine: " + (window.stats.scene.lineNum + 1);
+        }
+        if (file) body += "\nJS File: " + file;
+        if (line) body += "\nJS Line: " + line;
+        if (stack) body += "\nJS Stack: " + stack;
         body += "\nUser Agent: " + navigator.userAgent;
         body += "\nLoad time: " + window.loadTime;
         if (window.Persist) body += "\nPersist: " + window.Persist.type;
@@ -5363,6 +6106,7 @@ window.onerror=function(msg, file, line, stack) {
         if (window.currentVersion) {
           body += "\ncurrentVersion=" + window.currentVersion;
         }
+        if (window.nav && window.nav.bugLog) body += "\n\n" + window.nav.bugLog.join("\n");
         var supportEmailHref = "mailto:support-external@choiceofgames.com";
         try {
           supportEmailHref="mailto:"+getSupportEmail();
@@ -5375,6 +6119,7 @@ window.onerror=function(msg, file, line, stack) {
 window.onload=function() {
     if (window.alreadyLoaded) return;
     window.alreadyLoaded = true;
+    setTimeout(updateAllPaidSceneCaches, 0);
     window.main = document.getElementById("main");
     var head = document.getElementsByTagName("head")[0];
     window.nav.setStartingStatsClone(window.stats);
@@ -5388,8 +6133,19 @@ window.onload=function() {
     stats.sceneName = window.nav.getStartupScene();
     var map = parseQueryString(window.location.search);
     if (!map) {
+      var hashMap = parseQueryString(window.location.hash);
+      var realHash = false;
+      for (var key in hashMap) {
+        if (/^utm_/.test(key)) continue;
+        realHash = true;
+        break;
+      }
+      if (realHash) map = hashMap;
+    }
+
+    if (!map) {
       if (window.androidQueryString) {
-        map = parseQueryString(window.androidQueryString);
+        map = parseQueryString(window.androidQueryString.get());
       } else if (window.forcedScreenshots) {
         map = {forcedScene:"screenshots"};
       }
@@ -5404,6 +6160,14 @@ window.onload=function() {
       } else if (map.achievements) {
         doneLoading();
         showAchievements("hideNextButton");
+      } else if (map.omnibusRestore) {
+        restorePurchases('adfree', function(purchased) {
+          if (window.isIosApp) {
+            callIos('close');
+          } else {
+            setTimeout(function() {window.closer.close()}, 0);
+          }
+        });
       } else if (map.forcedScene) {
         safeCall(null, function() {loadAndRestoreGame(window.slot, window.forcedScene);});
       } else if (map.persistence) {
@@ -5426,6 +6190,10 @@ window.onload=function() {
       }
     } else {
       safeCall(null, loadAndRestoreGame);
+    }
+    if (window.beta) {
+      var reportBugButton = document.getElementById("bugButton");
+      if (reportBugButton) reportBugButton.setAttribute("style", "");
     }
     if (window.Touch && window.isWeb) {
       // INSERT ADMOB AD
@@ -5484,7 +6252,7 @@ window.onload=function() {
     }
     if (window.isWeb) {
       (function() {
-        if (window.releaseDate && new Date() < window.releaseDate) {
+        if (isPrerelease()) {
           var appLinks = document.getElementById('mobileLinks');
           if (appLinks) appLinks.style.display = 'none';
         }
@@ -5599,7 +6367,7 @@ if (window.isWeb) {
         safeTimeout(requester, 1);
       }
     }
-    safeTimeout(requester, 0);
+    if (window.isFile) safeTimeout(requester, 0);
   })();
 } else if (window.isAndroidApp) {
   document.getElementById("dynamic").innerHTML =
@@ -5616,9 +6384,9 @@ if (window.isWeb) {
 }
 // on touch devices, this hover state never goes away
 if (!('ontouchstart' in window)) {
-  document.getElementById("dynamic").innerHTML += ".choice label:hover {background-color: #E4DED8;}\n" +
-    "body.nightmode .choice label:hover {background-color: #555;}\n"+
-    "body.whitemode .choice label:hover {background-color: #ddd;}\n";
+  document.getElementById("dynamic").innerHTML += ".choice > div:hover {background-color: #E4DED8;}\n" +
+    "body.nightmode .choice > div:hover {background-color: #555;}\n"+
+    "body.whitemode .choice > div:hover {background-color: #ddd;}\n";
 }
 function fixChromeLinks() {
   var aboutLink = document.getElementById("aboutLink");
@@ -5642,38 +6410,38 @@ function fixChromeLinks() {
     }
   }, false);
 
-    var statsButton = document.getElementById("statsButton");
-    if (statsButton) {
-      statsButton.onclick = undefined;
-      statsButton.addEventListener("click", function() {
-        showStats();
-      }, false);
-    }
-
-    var achievementsButton = document.getElementById("achievementsButton");
-    if (achievementsButton) {
-      achievementsButton.onclick = undefined;
-      achievementsButton.addEventListener("click", function() {
-        showAchievements();
-      }, false);
-    }
-
-    var restartButton = document.getElementById("restartButton");
-    restartButton.onclick = undefined;
-    restartButton.addEventListener("click", function() {
-      restartGame("prompt");
+  var statsButton = document.getElementById("statsButton");
+  if (statsButton) {
+    statsButton.onclick = undefined;
+    statsButton.addEventListener("click", function() {
+      showStats();
     }, false);
+  }
 
-    var subscribeAnchor = document.getElementById("subscribeLink");
-    subscribeAnchor.onclick = undefined;
-    subscribeAnchor.addEventListener("click", function() {
-      subscribeLink();
+  var achievementsButton = document.getElementById("achievementsButton");
+  if (achievementsButton) {
+    achievementsButton.onclick = undefined;
+    achievementsButton.addEventListener("click", function() {
+      showAchievements();
     }, false);
+  }
 
-    var supportAnchor = document.getElementById("supportEmail");
-    supportAnchor.addEventListener("click", function(event) {
-      event.preventDefault();
-    }, false);
+  var restartButton = document.getElementById("restartButton");
+  restartButton.onclick = undefined;
+  restartButton.addEventListener("click", function() {
+    restartGame("prompt");
+  }, false);
+
+  var subscribeAnchor = document.getElementById("subscribeLink");
+  subscribeAnchor.onclick = undefined;
+  subscribeAnchor.addEventListener("click", function() {
+    subscribeLink();
+  }, false);
+
+  var supportAnchor = document.getElementById("supportEmail");
+  supportAnchor.addEventListener("click", function(event) {
+    event.preventDefault();
+  }, false);
 
   var menuButton = document.getElementById("menuButton");
   menuButton.onclick = undefined;
@@ -5801,18 +6569,20 @@ if (window.isWinStoreApp) {
 }
 
 function platformCode() {
-  if (window.isIosApp) return "ios";
-  if (window.isAndroidApp) return "android";
-  if (window.isMacApp) return "mac";
-  if (window.isWinStoreApp) return "windows";
-  if (window.isWinOldApp) return "csharp";
-  if (window.isChromeApp) return "chrome";
-  if (window.isWebOS) return "palm";
-  if (window.isSteamApp) return "steam";
-  if (window.isCef) return "cef";
-  if (window.isNode) return "dl";
-  if (window.isWeb) return "web";
-  return "unknown";
+  var platform = "unknown";
+  if (window.isIosApp) platform = "ios";
+  else if (window.isAndroidApp) platform = "android";
+  else if (window.isMacApp) platform = "mac";
+  else if (window.isWinStoreApp) platform = "windows";
+  else if (window.isWinOldApp) platform = "csharp";
+  else if (window.isChromeApp) platform = "chrome";
+  else if (window.isWebOS) platform = "palm";
+  else if (window.isSteamApp) platform = "steam";
+  else if (window.isCef) platform = "cef";
+  else if (window.isNode) platform = "dl";
+  else if (window.isWeb) platform = "web";
+  if (window.isOmnibusApp) platform = "omnibus-" + platform;
+  return platform;
 }
 
 function reinjectNavigator() {
@@ -5842,8 +6612,7 @@ function reinjectNavigator() {
  */
 function Scene(name, stats, nav, options) {
     if (!name) name = "";
-    if (!stats) stats = {implicit_control_flow:false};
-    if (stats["implicit_control_flow"] === undefined) stats["implicit_control_flow"] = false;
+    if (!stats) stats = {};
     // the name of the scene
     this.name = name;
 
@@ -5929,8 +6698,8 @@ Scene.prototype.printLoop = function printLoop() {
             this.dedent(indent);
         }
         // Ability to end a choice #option without goto is guarded by implicit_control_flow variable
-        if (this.temps._choiceEnds[this.lineNum] && 
-                (this.stats["implicit_control_flow"] || this.temps._fakeChoiceDepth > 0)) {
+        if (this.temps._choiceEnds[this.lineNum] &&
+                (this.getVar("implicit_control_flow") || this.temps._fakeChoiceDepth > 0)) {
             // Skip to the end of the choice if we hit the end of an #option
             this.rollbackLineCoverage();
             this.lineNum = this.temps._choiceEnds[this.lineNum];
@@ -5947,6 +6716,7 @@ Scene.prototype.printLoop = function printLoop() {
         if (!this.runCommand(line)) {
             this.prevLine = "text";
             this.screenEmpty = false;
+            this.initialCommands = false;
             this.printLine(line);
         }
     }
@@ -5966,7 +6736,8 @@ Scene.prototype.dedent = function dedent(newDent) {};
 
 Scene.prototype.printLine = function printLine(line) {
     if (!line) return null;
-    line = this.replaceVariables(line.replace(/^ */, ""));
+    this.screenEmpty = false;
+    line = this.replaceVariables(line.replace(/^\s*/, ""));
     this.accumulatedParagraph.push(line);
     // insert extra space unless the line ends with hyphen or dash
     if (!/([-\u2011-\u2014]|\[c\/\])$/.test(line)) this.accumulatedParagraph.push(' ');
@@ -6046,7 +6817,7 @@ Scene.prototype.replaceVariables = function (line) {
       if (typeof value === "boolean" || /^(true|false)$/i.test(value)) {
         value = bool(value) ? 1 : 2;
       }
-      value = num(value, this.lineNum+1);
+      value = num(value, this.lineNum+1, this.name);
       if ((value | 0) !== value) {
         throw new Error(this.lineMsg() + "invalid "+result[0]+"} at letter " + (index + result.index + 1) + "; '"+expr+"' is equal to " + value + " which is not a whole integer number");
       } else if (value < 1) {
@@ -6086,19 +6857,19 @@ Scene.prototype.loadSceneFast = function loadSceneFast(url) {
     if (this.loading) return;
     this.loading = true;
     var result;
-    if (window.cachedResults && window.cachedResults[this.name]) {
+    var self = this;
+    if (typeof cachedResults != "undefined" && cachedResults && cachedResults[this.name]) {
       result = window.cachedResults[this.name];
-      return this.loadLinesFast(result.crc, result.lines, result.labels);
+      return safeTimeout(function() {self.loadLinesFast(result.crc, result.lines, result.labels);}, 0);
     } else if (typeof allScenes != "undefined") {
       result = allScenes[this.name];
       if (!result) throw new Error("Couldn't load scene '" + this.name + "'\nThe file doesn't exist.");
-      return this.loadLinesFast(result.crc, result.lines, result.labels);
-    } else if (typeof isIosApp != "undefined") {
+      return safeTimeout(function() {self.loadLinesFast(result.crc, result.lines, result.labels);}, 0);
+    } else if (typeof window != "undefined" && window.isIosApp && window.isFile && !window.isOmnibusApp) {
       startLoading();
-      var self = this;
       var startedWaiting = new Date().getTime();
 
-      function retryScenes(command) {
+      function retryScenes(event, command) {
         if (!command) command = "retryscenes";
         clearScreen(function() {
           startLoading();
@@ -6118,19 +6889,19 @@ Scene.prototype.loadSceneFast = function loadSceneFast(url) {
         } else if (window.downloadState == "failed" || (new Date().getTime() - startedWaiting) > 5000) {
           doneLoading();
           if (window.downloadRequired) {
-            println("We weren't able to download the latest version of the game.");
-            println("");
+            self.printLine("We weren't able to download the latest version of the game.");
+            self.paragraph();
             printButton("Try Again", main, false, retryScenes);
           } else {
-            println("We weren't able to download the latest version of the game. Please try downloading again. The latest version may contain important fixes.");
-            println("");
+            self.printLine("We weren't able to download the latest version of the game. Please try downloading again. The latest version may contain important fixes.");
+            self.paragraph();
             var retry = {name: "Try downloading again."};
             var ignore = {name: "Continue playing without the latest version."}
             printOptions([""], [retry, ignore], function(option) {
               if (option == retry) {
                 retryScenes();
               } else {
-                retryScenes("requestscenesforce");
+                retryScenes(null, "requestscenesforce");
               }
             });
           }
@@ -6139,10 +6910,76 @@ Scene.prototype.loadSceneFast = function loadSceneFast(url) {
         }
       }
       return awaitAllScenes();
+    } else if (window.purchases[self.name] && isStoreSceneCacheRequired()) {
+      var sceneName = this.name.replace(/ /g, "_");
+      return window.store.get("cache_scene_hash_"+sceneName, function(ok, hash) {
+        function keepScene(result) {
+          if (!window.cachedResults) window.cachedResults = {};
+          cachedResults[self.name] = result;
+          self.loadLinesFast(result.crc, result.lines, result.labels);
+        }
+        function loadPaidScene() {
+          startLoading();
+          updateSinglePaidSceneCache(self.name, function(err, result) {
+            doneLoading();
+            if (err) {
+              if (err === "not registered") {
+                logout();
+                loginDiv();
+                return clearScreen(function() {
+                  loginForm(main, 0/*optional*/,
+                    "Please sign in to access this part of the game.", function() {
+                      clearScreen(loadAndRestoreGame);
+                    });
+                });
+              } else if (err === "not purchased") {
+                window.rerestore = function () {
+                  restorePurchases(window.purchases[self.name], function (purchased) {
+                    window.location.reload(); 
+                  });
+                };
+                main.innerHTML = "<div id='text'><p>Our apologies; we were unable to access your purchase while loading game data. (Error 403x)" +
+                  "  Please restore purchases now; if that doesn't work, please email " + getSupportEmail() + " with details, including the error number 403x.</p>" +
+                  " <p><button class='next' onclick='window.rerestore();'>Restore Now</button></p></div>";
+                curl();
+                return;
+              }
+              main.innerHTML = "<div id='text'><p>Our apologies; there was a " + err + " error while loading game data."+
+              "  Please refresh now; if that doesn't work, please click the Restart button and email "+getSupportEmail()+" with details, including the error number.</p>"+
+              " <p><button class='next' onclick='window.location.reload();'>Refresh Now</button></p></div>";
+              curl();
+            } else {
+              keepScene(result);
+            }
+          })
+        }
+        if (ok && hash == hashes.scenes[sceneName + ".txt.json"]) {
+          window.store.get("cache_scene_"+sceneName, function(ok, text) {
+            if (ok && text) {
+              var parsed;
+              try {
+                parsed = jsonParse(text);
+              } catch (e) {
+                if (window.console) console.error(e, e.stack);
+              }
+              if (parsed && parsed.crc && parsed.lines && parsed.labels) return keepScene(parsed);
+              loadPaidScene();
+            } else {
+              loadPaidScene();
+            }
+          })
+        } else {
+          loadPaidScene();
+        }
+      });
     }
     startLoading();
     if (!url) {
-        url = Scene.baseUrl + "/" + this.name.replace(/ /g, "_") + ".txt.json";
+        var fileName = this.name.replace(/ /g, "_") + ".txt.json";
+        url = Scene.baseUrl + "/" + fileName;
+        if (window.location.protocol == "https:" && window.hashes && window.hashes.scenes[fileName]) {
+          url += "?hash="+hashes.scenes[fileName];
+        }
     }
     var xhr = findXhr();
     xhr.open("GET", url, true);
@@ -6179,11 +7016,13 @@ Scene.prototype.loadSceneFast = function loadSceneFast(url) {
           if (window.console) console.error(e, e.stack);
         }
         if (window.isWeb && (xhr.status != 200 || !result)) {
+          doneLoading();
           var status = xhr.status;
           if (status == 200 || !status) status = "network";
-          main.innerHTML = "<p>Our apologies; there was a " + status + " error while loading game data."+
+          main.innerHTML = "<div id='text'><p>Our apologies; there was a " + status + " error while loading game data."+
           "  Please refresh your browser now; if that doesn't work, please click the Restart button and email "+getSupportEmail()+" with details.</p>"+
-          " <p><button onclick='window.location.reload();'>Refresh Now</button></p>";
+          " <p><button onclick='window.location.reload();'>Refresh Now</button></p></div>";
+          curl();
           return;
         } else if (xhr.responseText === "") {
           throw new Error("Couldn't load " + url + "\nThe file is probably missing or empty.");
@@ -6214,7 +7053,7 @@ Scene.prototype.loadSceneFast = function loadSceneFast(url) {
 };
 
 Scene.prototype.loadLinesFast = function loadLinesFast(crc, lines, labels) {
-  this.checkSum(crc);
+  this.crc = crc;
   this.lines = lines;
   this.labels = labels;
   this.loading = false;
@@ -6229,13 +7068,12 @@ Scene.prototype.loadLinesFast = function loadLinesFast(crc, lines, labels) {
 };
 
 // load the scene file from the specified URL (or from default URL by name)
-Scene.prototype.loadScene = function loadScene(url) {
+Scene.prototype.loadScene = function loadScene() {
     if (this.loading) return;
     this.loading = true;
+    if (window.isFile) return this.loadFile();
     startLoading();
-    if (!url) {
-        url = Scene.baseUrl + "/" + this.name + ".txt";
-    }
+    var url = Scene.baseUrl + "/" + this.name + ".txt";
     var xhr = findXhr();
     xhr.open("GET", url, true);
     var self = this;
@@ -6315,23 +7153,138 @@ Scene.prototype.loadScene = function loadScene(url) {
     }
 };
 
-Scene.prototype.checkSum = function checkSum(crc) {
-  if (this.temps.choice_crc) {
-    if (this.temps.choice_crc != crc) {
-      // The scene has changed; restart the scene
-      var userRestored = this.temps.choice_user_restored || false;
-      this.temps = {choice_reuse:"allow", choice_user_restored:userRestored, choice_crc: crc, _choiceEnds:{}};
-      this.lineNum = 0;
-      this.indent = 0;
-    }
+Scene.prototype.loadFile = function loadFile() {
+  var _this = this;
+  if (typeof uploadedFiles !== "object") {
+    clearScreen(function() {
+      var header = document.getElementById('header');
+      if (header) header.style.display = "none";
+      var makeYourOwnGames = document.getElementById('makeyourowngames');
+      if (makeYourOwnGames) makeYourOwnGames.style.display = "none";
+      _this.printLine("[b]Please \"Upload\" ChoiceScript[/b]");
+      _this.paragraph();
+      _this.printLine("To begin, you'll need to grant permission to \"upload\" your choicescript folder containing index.html.")
+      _this.paragraph();
+      _this.printLine("Use the button below to select your choicescript folder.");
+      _this.paragraph();
+      var text = document.getElementById('text');
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.webkitdirectory = true;
+      input.multiple = true;
+      input.addEventListener('change', function searchForStartup(e) {
+        var numFiles = input.files.length;
+        var startupCandidates = [];
+        for (var i = 0; i < numFiles; i++) {
+          var file = input.files[i];
+          if (file.name === "startup.txt") {
+            startupCandidates.push(file);
+          }
+        }
+        if (!startupCandidates.length) {
+          return clearScreen(function() {
+            _this.printLine("We couldn't find startup.txt in the folder you chose. Please try again.")
+            _this.paragraph();
+            document.getElementById('text').appendChild(input);
+            curl();
+          });
+        }
+
+        if (startupCandidates.length > 1) {
+          return clearScreen(function() {
+            _this.printLine("There were multiple files called startup.txt in the folder you chose. Please try again.");
+            _this.paragraph();
+            for (var i = 0; i < startupCandidates.length; i++) {
+              _this.printLine("\u2022 " + startupCandidates[i].webkitRelativePath);
+            }
+            _this.paragraph();
+            document.getElementById('text').appendChild(input);
+            curl();
+          });
+        }
+
+        var startup = startupCandidates[0];
+        var rootDirTest = new RegExp("^" + startup.webkitRelativePath.replace(/\/startup.txt$/, "/[^/]+$"));
+        var sceneFiles = {};
+        for (var i = 0; i < numFiles; i++) {
+          var file = input.files[i];
+          if (rootDirTest.test(file.webkitRelativePath)) {
+            sceneFiles[file.name] = file;
+          }
+        }
+        window.uploadedFiles = sceneFiles;
+        if (header) header.style.display = "";
+        if (makeYourOwnGames) makeYourOwnGames.style.display = "";
+        clearScreen(function() {
+          _this.loadFile();
+        });
+      });
+      text.appendChild(input);
+      _this.paragraph();
+      _this.printLine("(We're not actually going to transfer your code over the Internet, " +
+        "but this web page needs permission to upload your choicescript folder in order to access " +
+        "your code and run it. The power to access your code would also grant us the power to " +
+        "transfer your code elsewhere, but we're not going to do that. JavaScript programmers " +
+        "can read our JavaScript to verify that this is true.)");
+      _this.paragraph();
+      curl();
+    });
   } else {
-    this.temps.choice_crc = crc;
+    var fileName = this.name + ".txt";
+    if (uploadedFiles[fileName]) {
+      startLoading();
+      new Response(uploadedFiles[fileName]).text().then(function(result) {
+        scene = result;
+        scene = scene.replace(/\r/g, "");
+        _this.loading = false;
+        safeCall(_this, function() {
+          _this.loadLines(scene);
+          doneLoading();
+          _this.execute();
+        });
+      });
+    } else {
+      for (var otherFileName in uploadedFiles) {
+        if (fileName.toLowerCase() === otherFileName.toLowerCase()) {
+          main.innerHTML = "<p>Couldn't find "+fileName+" in the uploaded folder, but we did find "+otherFileName+". Scene file names must match exactly, including capitalization.</p>"+
+          " <p><button onclick='window.location.reload();'>Refresh Now</button></p>";
+          curl();
+          return;
+        }
+      }
+      main.innerHTML = "<p>Couldn't find "+fileName+" in the uploaded folder.</p>"+
+        " <p><button onclick='window.location.reload();'>Refresh Now</button></p>";
+      curl();
+    }
   }
+}
+
+Scene.prototype.checkSum = function checkSum() {
+  if (this.temps.choice_crc) {
+    if (!this.randomtest && !this.quicktest && this.temps.choice_crc != this.crc && this.lineNum) {
+      // The scene has changed; restart the scene from backup
+      if (typeof alertify !== 'undefined') {
+        if (!initStore()) {
+          alertify.log(this.name + ".txt has updated. Restarting chapter.");
+        } else {
+          alertify.log("The game has updated. Restarting chapter.");
+        }
+      }
+      var self = this;
+      safeTimeout(function () {
+        clearScreen(function () {
+          loadAndRestoreGame("backup");
+        });
+      }, 0);
+      return false;
+    }
+  }
+  this.temps.choice_crc = this.crc;
+  return true;
 };
 
 Scene.prototype.loadLines = function loadLines(str) {
-    var crc = crc32(str);
-    this.checkSum(crc);
+    this.crc = crc32(str);
     this.lines = str.split(/\r?\n/);
     this.parseLabels();
     this.loaded = true;
@@ -6348,6 +7301,9 @@ Scene.prototype.execute = function execute() {
         }
         return;
     }
+    if (!this.checkSum()) {
+      return;
+    }
     if (this.nav) this.nav.repairStats(stats);
     if (!this.temps._choiceEnds) this.temps._choiceEnds = {};
     doneLoading();
@@ -6360,6 +7316,15 @@ Scene.prototype.execute = function execute() {
       } else {
           throw new Error(this.targetLabel.origin + " line " + (this.targetLabel.originLine+1) + ": "+this.name+" doesn't contain label " + label);
       }
+    }
+    // this backup slot will only be used when the scene crc changes during upgrades
+    if (!this.lineNum) {
+      var subsceneStack = this.stats.choice_subscene_stack || [];
+      if (!subsceneStack.length) this.save("backup");
+    }
+    if (this.redirectingFromStats) {
+      this.save("");
+      delete this.redirectingFromStats;
     }
     this.printLoop();
 };
@@ -6502,7 +7467,7 @@ Scene.prototype.choice = function choice(data) {
       self.standardResolution(option);
     });
     this.finished = true;
-    if (this.temps._fakeChoiceDepth > 0 || this.stats["implicit_control_flow"]) {
+    if (this.temps._fakeChoiceDepth > 0 || this.getVar("implicit_control_flow")) {
       if (!this.temps._choiceEnds) {
         this.temps._choiceEnds = {};
       }
@@ -6630,6 +7595,15 @@ Scene.prototype["goto"] = function scene_goto(line) {
     } else {
         throw new Error(this.lineMsg() + "bad label " + label);
     }
+    if (!this.localCoverage) this.localCoverage = {};
+    if (this.localCoverage[this.lineNum]) {
+        this.localCoverage[this.lineNum]++;
+        if (this.looplimit_count && this.localCoverage[this.lineNum] > this.looplimit_count) {
+            throw new Error(this.lineMsg() + "visited this line too many times (" + this.looplimit_count + ")");
+        }
+    } else {
+        this.localCoverage[this.lineNum] = 1;
+    }
 };
 
 Scene.prototype.gosub = function scene_gosub(data) {
@@ -6714,7 +7688,12 @@ Scene.prototype["return"] = function scene_return() {
       scene.lineNum = stackFrame.lineNum;
       scene.indent = stackFrame.indent;
       scene.accumulatedParagraph = this.accumulatedParagraph;
-      scene.execute();
+      if (this.randomtest) {
+        // pop the stack in randomtest to avoid overflow
+        clearScreen(function() {scene.execute()});
+      } else {
+        scene.execute();
+      }
     } else if (!this.temps.choice_substack && !this.stats.choice_subscene_stack) {
       throw new Error(this.lineMsg() + "invalid return; gosub has not yet been called");
     } else {
@@ -6746,11 +7725,18 @@ Scene.prototype.finish = function finish(buttonName) {
     var self = this;
     if (this.secondaryMode == "stats") {
       if (typeof window == "undefined") return;
-      if (window.forcedScene == "choicescript_stats") return;
-      if (window.isAndroidApp && window.statsMode.get()) return;
-      printButton(buttonName || "Next", main, false,
+      // In iPad app, the stats screen is always visible
+      if (window.isIosApp && window.isIPad) return;
+
+      if (this.screenEmpty) {
+        returnFromStats();
+        return;
+      }
+      if (!buttonName) buttonName = "Next";
+      buttonName = this.replaceVariables(buttonName);
+      printButton(buttonName, main, false,
         function() {
-          clearScreen(loadAndRestoreGame);
+          returnFromStats();
         }
       );
       return;
@@ -6777,7 +7763,7 @@ Scene.prototype.finish = function finish(buttonName) {
         });
       }
     );
-    if (this.debugMode) println(toJson(this.stats));
+    if (this.debugMode) println(computeCookie(this.stats, this.temps, this.lineNum, this.indent));
 };
 
 Scene.prototype.autofinish = function autofinish(buttonName) {
@@ -6832,7 +7818,7 @@ Scene.prototype.goto_scene = function gotoScene(data) {
 
     if (result.sceneName == this.name) {
       if (typeof result.label === "undefined") {
-        this.lineNum = 0;
+        this.lineNum = -1; // the printLoop will increment the line number to 0
       } else {
         this["goto"](result.label);
       }
@@ -6850,31 +7836,27 @@ Scene.prototype.goto_scene = function gotoScene(data) {
     scene.accumulatedParagraph = this.accumulatedParagraph;
     if (typeof result.label != "undefined") scene.targetLabel = {label:result.label, origin:this.name, originLine:this.lineNum};
     if (typeof result.param != "undefined") scene.temps.param = result.param;
+    if (this.redirectingFromStats) scene.redirectingFromStats = true;
     scene.execute();
 };
 
 // *redirect_scene foo
 Scene.prototype.redirect_scene = function redirectScene(data) {
   if (this.secondaryMode != "stats") throw new Error(this.lineMsg() + "The *redirect_scene command can only be used from the stats screen.");
-  var args = trim(data).split(/ /);
-  var sceneName, label;
-  if (args.length == 1) {
-    sceneName = data;
-  } else {
-    sceneName = args[0];
-    label = args[1];
-  }
+  var result = this.parseGotoScene(data);
   this.finished = true;
   this.skipFooter = true;
   var self = this;
-  redirectFromStats(sceneName, label, this.lineNum, function() {
+  redirectFromStats(result.sceneName, result.label, this.lineNum, function() {
     delete self.secondaryMode;
+    delete self.saveSlot;
+    self.redirectingFromStats = true;
     self.goto_scene(data);
   });
 };
 
 Scene.prototype.product = function product(productId) {
-  if (!/^[a-z]+$/.test(productId)) throw new Error(this.lineMsg()+"Invalid product id: " +productId);
+  if (!/^[a-z]+$/.test(productId)) throw new Error(this.lineMsg()+"Invalid product id (only lowercase letters, no numbers or punctuation): " +productId);
   if (this.nav) this.nav.products[productId] = {};
 }
 
@@ -6930,32 +7912,78 @@ Scene.prototype.check_purchase = function scene_checkPurchase(data) {
   });
 };
 
-Scene.prototype.purchase = function purchase_button(data) {
-  var result = /^(\w+)\s+(\S+)\s+(.*)/.exec(data);
-  if (!result) throw new Error(this.lineMsg() + "invalid line; can't parse purchaseable product: " + data);
-  var product = result[1];
-  var priceGuess = trim(result[2]);
-  var label = trim(result[3]);
+Scene.prototype.parsePurchase = function parsePurchase(data) {
+  var result;
+  if (/^\{/.test(data)) {
+    try {
+      result = JSON.parse(data);
+    } catch (e) {
+      throw new Error(this.lineMsg() + "Couldn't parse purchase JSON: " + e)
+    }
+    if (!result.product) {
+      throw new Error(this.lineMsg() + "JSON missing product");
+    }
+    if (!result['goto']) {
+      throw new Error(this.lineMsg() + "JSON missing goto");
+    }
+    if (result.priceGuess && result.discount) {
+      throw new Error(this.lineMsg() + "JSON has both top-level priceGuess and discount; there should be one or the other");
+    }
+    if (!(result.priceGuess || result.discount)) {
+      throw new Error(this.lineMsg() + "JSON has neither top-level priceGuess nor discount; there should be one or the other");
+    }
+    if (result.discount) {
+      if (!result.discount.end) throw new Error(this.lineMsg() + "JSON discount doesn't include end");
+      result.discount.end = parseDateStringInCurrentTimezone(result.discount.end, this.lineNum + 1);
+      if (!result.discount.lowPrice) throw new Error(this.lineMsg() + "JSON discount doesn't include lowPrice");
+      if (!/^\$/.test(result.discount.lowPrice)) throw new Error(this.lineMsg() + "lowPrice " + fullPriceGuess + "doesn't start with dollar");
+      if (!result.discount.fullPrice) throw new Error(this.lineMsg() + "JSON discount doesn't include fullPrice");
+      if (!/^\$/.test(result.discount.fullPrice)) throw new Error(this.lineMsg() + "fullPrice " + fullPriceGuess + "doesn't start with dollar");
+    }
+    if (!result.title) result.title = "It";
+  } else {
+    var parsed = /^(\w+)\s+(\S+)\s+(.*)/.exec(data);
+    if (!parsed) throw new Error(this.lineMsg() + "invalid line; can't parse purchaseable product: " + data);
+    result = {product: parsed[1], priceGuess: parsed[2], "goto": parsed[3], title: "It"};
+  }
+  var product = result.product;
   if (!this.nav.products[product] && product != "adfree") {
     throw new Error(this.lineMsg() + "The product " + product + " wasn't declared in a *product command");
   }
-  if (typeof this.temps["choice_purchased_"+product] === "undefined") throw new Error(this.lineMsg() + "Didn't check_purchases on this page");
+  if (typeof this.temps["choice_purchased_" + product] === "undefined") throw new Error(this.lineMsg() + "Didn't check_purchases on this page");
+  return result;
+}
+
+Scene.prototype.purchase = function purchase(data) {
+  var parsed = this.parsePurchase(data);
+  if (parsed.discount) {
+    this.buyButtonDiscount(parsed.product, parsed.discount.end, parsed.discount.fullPrice, parsed.discount.lowPrice, parsed['goto'], parsed.title);
+  } else {
+    this.buyButton(parsed.product, parsed.priceGuess, parsed['goto'], parsed.title);
+  }
+}
+
+Scene.prototype.buyButton = function(product, priceGuess, label, title) {
   this.finished = true;
   this.skipFooter = true;
   var self = this;
+  var purchaseFinished = function() {
+    if (label) self["goto"](label);
+    self.finished = false;
+    self.skipFooter = false;
+    self.resetPage();
+  }
   getPrice(product, function (price) {
     if (!price || "free" == price) {
-      self["goto"](label);
-      self.finished = false;
-      self.resetPage();
+      purchaseFinished();
     } else {
-      if (price == "guess") price = priceGuess;
-      var prerelease = (typeof window !== "undefined" && window.releaseDate && window.isWeb && window.releaseDate > new Date());
+      if (price == "guess") price = priceGuess + " USD";
+      var prerelease = self.getVar('choice_prerelease');
       var buttonText;
       if (prerelease) {
-        buttonText = "Pre-Order It";
+        buttonText = "Pre-Order " + title;
       } else {
-        buttonText = "Buy It Now";
+        buttonText = "Buy "+title+" Now";
       }
       if (price != "hide") {
         buttonText += " for " + price;
@@ -6967,11 +7995,7 @@ Scene.prototype.purchase = function purchase_button(data) {
         function() {
           safeCall(self, function() {
               purchase(product, function() {
-                safeCall(self, function() {
-                  self["goto"](label);
-                  self.finished = false;
-                  self.resetPage();
-                });
+                safeCall(self, purchaseFinished);
               });
           });
         }
@@ -6985,12 +8009,10 @@ Scene.prototype.purchase = function purchase_button(data) {
             safeCall(self, function() {
                 restorePurchases(product, function(purchased) {
                   if (purchased) {
-                    self["goto"](label);
-                    self.finished = false;
-                    self.resetPage();
+                    purchaseFinished();
                   } else {
                     // refresh, in case we're on web showing a full-screen login. Not necessary on mobile? But, meh.
-                    if (!self.secondaryMode) clearScreen(loadAndRestoreGame);
+                    clearScreen(function() {loadAndRestoreGame("", window.forcedScene);});
                   }
                 });
             });
@@ -6998,9 +8020,11 @@ Scene.prototype.purchase = function purchase_button(data) {
         );
       }
 
-      self.skipFooter = false;
-      self.finished = false;
-      self.execute();
+      if (label) {
+        self.skipFooter = false;
+        self.finished = false;
+        self.execute();
+      }
     }
   });
 };
@@ -7022,7 +8046,12 @@ Scene.prototype.purchase_discount = function purchase_discount(line) {
   if (!startsWithDollar.test(discountedPriceGuess)) {
     throw new Error(this.lineMsg() + "discounted price guess "+discountedPriceGuess+"doesn't start with dollar: " + line);
   }
-  var prerelease = (typeof window !== "undefined" && window.releaseDate && window.isWeb && window.releaseDate > new Date());
+  var title = "It";
+  this.buyButtonDiscount(product, expectedEndDate, fullPriceGuess, discountedPriceGuess, label, title);
+}
+
+Scene.prototype.buyButtonDiscount = function buyButtonDiscount(product, expectedEndDate, fullPriceGuess, discountedPriceGuess, label, title) {
+  var prerelease = this.getVar('choice_prerelease');
   var discountText;
   if (prerelease) {
     discountText = "[b]Buy now before the price increases![/b]";
@@ -7038,7 +8067,7 @@ Scene.prototype.purchase_discount = function purchase_discount(line) {
   } else {
     priceGuess = fullPriceGuess;
   }
-  this.purchase([product, priceGuess, label].join(" "));
+  this.buyButton(product, priceGuess, label, title);
 }
 
 Scene.prototype.print_discount = function print_Discount(line) {
@@ -7066,25 +8095,41 @@ Scene.prototype.abort = function() {
 // create a new permanent stat
 Scene.prototype.create = function create(line) {
     var result = /^(\w*)(.*)/.exec(line);
-    if (!result) throw new Error(this.lineMsg()+"Invalid create instruction, no variable specified: " + line);
+    if (!result) throw new Error(this.lineMsg() + "Invalid create instruction, no variable specified: " + line);
     var variable = result[1];
     this.validateVariable(variable);
     variable = variable.toLowerCase();
     var expr = result[2];
     var stack = this.tokenizeExpr(expr);
-    if (stack.length === 0) throw new Error(this.lineMsg()+"Invalid create instruction, no value specified: " + line);
-    var self = this;
-    function complexError() {
-      throw new Error(self.lineMsg()+"Invalid create instruction, value must be a a number, true/false, or a quoted string: " + line);
-    }
-    if (stack.length > 1) complexError();
-    var token = stack[0];
-    if (!/STRING|NUMBER|VAR/.test(token.name)) complexError();
-    if ("VAR" == token.name && !/^true|false$/i.test(token.value)) complexError();
-    if ("STRING" == token.name && /(\$|@)!?!?{/.test(token.value)) throw new Error(this.lineMsg() + "Invalid create instruction, value must be a simple string without ${} or @{}: " + line);
-    var value = this.evaluateExpr(stack);
-    this.stats[variable] = value;
-    if (this.nav) this.nav.startingStats[variable] = value;
+    if (stack.length > 1) throw new Error(this.lineMsg() + "Invalid create instruction, too many values: " + line);
+    this.createVariable(variable, stack[0], line);
+}
+
+Scene.prototype.createVariable = function createVariable(variable, token, line) {
+  var self = this;
+  if (!token) throw new Error(this.lineMsg() + "Invalid create instruction, no value specified: " + line);
+  function complexError() {
+    throw new Error(self.lineMsg() + "Invalid create instruction, value must be a number, true/false, or a quoted string: " + line);
+  }
+  if (!/STRING|NUMBER|VAR/.test(token.name)) complexError();
+  if ("VAR" == token.name && !/^true|false$/i.test(token.value)) complexError();
+  if ("STRING" == token.name && /(\$|@)!?!?{/.test(token.value)) throw new Error(this.lineMsg() + "Invalid create instruction, value must be a simple string without ${} or @{}: " + line);
+  var value = this.evaluateExpr([token]);
+  if (!this.created) this.created = {};
+  if (this.created[variable]) throw new Error(this.lineMsg() + "Invalid create. " + variable + " was previously created on line " + this.created[variable]);
+  this.created[variable] = this.lineNum + 1;
+  this.stats[variable] = value;
+  if (this.nav) this.nav.startingStats[variable] = value;
+}
+
+// *create_array {name} {length} {value(s)}
+// create an "array" of permanent stats:
+//    myarray_1
+//    myarray_2
+//    ...
+//    myarray_count
+Scene.prototype.create_array = function create(line) {
+  this.defineArray("create", line);
 };
 
 // *temp
@@ -7101,8 +8146,74 @@ Scene.prototype.temp = function temp(line) {
       return;
     }
     var value = this.evaluateExpr(stack);
+    if (typeof this.stats[variable.toLowerCase()] !== 'undefined') {
+      this.warning("This is a temp, but we already ran *create " + variable);
+    }
     this.temps[variable.toLowerCase()] = value;
 };
+
+// *temp_array
+// create an "array" of temporary stats for the current scene
+Scene.prototype.temp_array = function temp_array(line) {
+  this.defineArray("temp", line);
+};
+
+Scene.prototype.defineArray = function defineArray(command, line) {
+  var result = /^(\w+)(.*)/.exec(line);
+  if (!result) throw new Error(this.lineMsg() + "Invalid " + command + "_array instruction, no array name specified: " + line);
+  var variable = result[1];
+  this.validateVariable(variable);
+  variable = variable.toLowerCase();
+  var stack = this.tokenizeExpr(result[2].trim());
+  if (!stack.length) {
+    throw new Error(this.lineMsg() + "Invalid " + command + "_array instruction, missing length: " + line);
+  }
+  var length = Number(stack.shift().value);
+  if (length !== Math.floor(length) || length < 1) {
+    throw new Error(this.lineMsg() + "Invalid " + command + "_array instruction, length should be a whole number greater than 0: " + line);
+  }
+
+  var token;
+  var value = null;
+  var self = this;
+  var i;
+  function create(suffix) {
+    if (command === "create") {
+      self.createVariable(variable + "_" + suffix, token, line);
+    } else {
+      self.temps[variable + "_" + suffix] = value;
+    }
+  }
+
+  function next() {
+    token = stack[0];
+    if (!token) throw new Error(self.lineMsg() + "Too few values. Expected 1 default value or " + length + " explicit values, not " + i + ": " + line);
+    value = self.evaluateValueToken(stack.shift(), stack);
+  }
+
+  if (stack.length) next();
+  
+  if (!stack.length) {
+    // Use first default value for all creations
+    for (i = 0; i < length; i++) {
+      create(i+1);
+    }
+  } else {
+    create(1);
+    for (i = 1; i < length; i++) {
+      next();
+      create(i+1);
+    }
+  }
+
+  if (stack.length) {
+    throw new Error(this.lineMsg() + "Too many values. Expected 1 default value or " + length + " explicit values: " + line);
+  }
+
+  token = { name: "NUMBER", value: length };
+  value = length;
+  create("count");
+}
 
 // retrieve the value of the variable, preferring temp scope
 Scene.prototype.getVar = function getVar(variable) {
@@ -7117,30 +8228,36 @@ Scene.prototype.getVar = function getVar(variable) {
     if (variable == "choice_is_web") return typeof window != "undefined" && !!window.isWeb;
     if (variable == "choice_is_steam") return typeof window != "undefined" && !!window.isSteamApp;
     if (variable == "choice_is_ios_app") return typeof window != "undefined" && !!window.isIosApp;
+    if (variable == "choice_is_ipad_app") return typeof window != "undefined" && !!window.isIosApp && !!window.isIPad;
+    if (variable == "choice_is_android_app") return typeof window != "undefined" && !!window.isAndroidApp;
+    if (variable == "choice_is_omnibus_app") return typeof window != "undefined" && !!window.isOmnibusApp;
+    if (variable == "choice_is_amazon_app") return typeof window != "undefined" && !!window.isAmazonApp;
     if (variable == "choice_is_advertising_supported") return typeof isAdvertisingSupported != "undefined" && !!isAdvertisingSupported();
     if (variable == "choice_is_trial") return !!(typeof isTrial != "undefined" && isTrial);
     if (variable == "choice_release_date") {
       if (typeof window != "undefined" && window.releaseDate) {
-        return simpleDateTimeFormat(window.releaseDate);
+        return simpleDateFormat(window.releaseDate);
       }
       return "release day";
     }
-    if (variable == "choice_prerelease") {
-      if (typeof window != "undefined" && window.releaseDate) {
-        return new Date() < window.releaseDate.getTime();
-      } else {
-        return false;
-      }
-    }
-    if (variable == "choice_kindle") return false;
+    if (variable == "choice_prerelease") return typeof isPrerelease != "undefined" && !!isPrerelease();
+    if (variable == "choice_kindle") return typeof isKindle !== "undefined" && !!isKindle;
     if (variable == "choice_randomtest") return !!this.randomtest;
     if (variable == "choice_quicktest") return false; // quicktest will explore "false" paths
+    if (variable == "choice_linenum") return this.lineNum;
+    if (variable == "choice_scene") return this.name;
     if (variable == "choice_restore_purchases_allowed") return isRestorePurchasesSupported();
     if (variable == "choice_save_allowed") return areSaveSlotsSupported();
     if (variable == "choice_time_stamp") return Math.floor(new Date()/1000);
     if (variable == "choice_nightmode") return typeof isNightMode != "undefined" && isNightMode();
+    if (variable == "choice_title") {
+      if (typeof this.stats.choice_title === "undefined") {
+        throw new Error(this.lineMsg() + "This game is missing a *title command");
+      }
+    }
     if ((!this.temps.hasOwnProperty(variable))) {
         if ((!this.stats.hasOwnProperty(variable))) {
+            if (variable == "implicit_control_flow") return false;
             throw new Error(this.lineMsg() + "Non-existent variable '"+variable+"'");
         }
         value = this.stats[variable];
@@ -7190,6 +8307,26 @@ Scene.prototype["delete"] = function scene_delete(variable) {
     } else {
         delete this.temps[variable];
     }
+};
+
+Scene.prototype["delete_array"] = function scene_delete_array(arrayName) {
+  arrayName = arrayName.toLowerCase();
+  if ("undefined" === typeof this.temps[arrayName + "_count"]) {
+      if ("undefined" === typeof this.stats[arrayName + "_count"]) {
+          throw new Error(this.lineMsg() + "Non-existent array '"+arrayName+"'");
+      }
+      var length = this.stats[arrayName + "_count"];
+      delete this.stats[arrayName + "_count"];
+      for (var i = 1; i <= length; i++) {
+        delete this.stats[arrayName + ("_" + i)];
+      }
+  } else {
+      var length = this.temps[arrayName + "_count"];
+      delete this.temps[arrayName + "_count"];
+      for (var i = 1; i <= length; i++) {
+        delete this.temps[arrayName + ("_" + i)];
+      }
+  }
 };
 
 // during a choice, recursively parse the options
@@ -7247,27 +8384,7 @@ Scene.prototype.parseOptions = function parseOptions(startIndent, choicesRemaini
         }
         if (indent <= startIndent) {
             // it's over!
-            // TODO is this error test valid?
-            if (choicesRemaining.length>1 && !suboptionsEncountered) {
-                throw new Error(this.lineMsg() + "invalid indent, there were subchoices remaining: [" + choicesRemaining.join(",") + "]");
-            }
-            if (bodyExpected && 
-                    (this.temps._fakeChoiceDepth === undefined || this.temps._fakeChoiceDepth < 1)) {
-                throw new Error(this.lineMsg() + "Expected choice body");
-            }
-            if (!atLeastOneSelectableOption) this.conflictingOptions("line " + (startingLine+1) + ": No selectable options");
-            if (expectedSubOptions) {
-                this.verifyOptionsMatch(expectedSubOptions, options);
-            }
-            this.rollbackLineCoverage();
-            prevOption = options[options.length-1];
-            this.lineNum = this.previousNonBlankLineNum();
-            if (!prevOption.endLine) prevOption.endLine = this.lineNum+1;
-            for (i = 0; i < choiceEnds.length; i++) {
-                this.temps._choiceEnds[choiceEnds[i]] = this.lineNum;
-            }
-            this.rollbackLineCoverage();
-            return options;
+            break;
         }
         if (indent < this.indent) {
             // TODO drift detection
@@ -7329,13 +8446,16 @@ Scene.prototype.parseOptions = function parseOptions(startIndent, choicesRemaini
               overrideDefaultReuseSetting = true;
               removeModifierCommand();
             }
+            if ("random_weight" == command) {
+              removeModifierCommand(true /*stripParenthetical*/);
+            }
 
             if ("print" == command) {
                 line = this.evaluateExpr(this.tokenizeExpr(data));
             } else if ("if" == command) {
+              choiceEnds.push(this.lineNum);
               ifResult = this.parseOptionIf(data, command);
               if (ifResult) {
-                choiceEnds.push(this.lineNum);
                 inlineIf = ifResult.condition;
                 if (ifResult.result) {
                   line = ifResult.line;
@@ -7346,7 +8466,15 @@ Scene.prototype.parseOptions = function parseOptions(startIndent, choicesRemaini
                 this["if"](data, true /*inChoice*/);
                 continue;
               }
-            } else if (/^(else|elseif|elsif)$/.test(command)) {
+            } else if ("else" == command) {
+              if (data) throw new Error(this.lineMsg() + "Invalid content after *" + command + "; move the #option to the next line, indented: " + data);
+              this[command](data, true /*inChoice*/);
+              continue;
+            } else if (/^(elseif|elsif)$/.test(command)) {
+              ifResult = this.parseOptionIf(data, command);
+              if (ifResult) {
+                throw new Error(this.lineMsg() + "Invalid content after *" + command + "; move the #option to the next line, indented: " + ifResult.line);
+              }
               this[command](data, true /*inChoice*/);
               continue;
             } else if ("selectable_if" == command) {
@@ -7419,13 +8547,27 @@ Scene.prototype.parseOptions = function parseOptions(startIndent, choicesRemaini
         }
         if (!unselectable) atLeastOneSelectableOption = true;
     }
-    if (bodyExpected && 
+
+    // TODO is this error test valid?
+    if (choicesRemaining.length>1 && !suboptionsEncountered) {
+        throw new Error(this.lineMsg() + "invalid indent, there were subchoices remaining: [" + choicesRemaining.join(",") + "]");
+    }
+    if (bodyExpected &&
             (this.temps._fakeChoiceDepth === undefined || this.temps._fakeChoiceDepth < 1)) {
         throw new Error(this.lineMsg() + "Expected choice body");
     }
+    if (!atLeastOneSelectableOption) this.conflictingOptions(this.lineMsg() + "No selectable options");
+    if (expectedSubOptions) {
+        this.verifyOptionsMatch(expectedSubOptions, options);
+    }
+    this.rollbackLineCoverage();
     prevOption = options[options.length-1];
-    if (!prevOption.endLine) prevOption.endLine = this.lineNum;
-    if (!atLeastOneSelectableOption) this.conflictingOptions("line " + (startingLine+1) + ": No selectable options");
+    this.lineNum = this.previousNonBlankLineNum();
+    if (!prevOption.endLine) prevOption.endLine = this.lineNum+1;
+    for (i = 0; i < choiceEnds.length; i++) {
+        this.temps._choiceEnds[choiceEnds[i]] = this.lineNum;
+    }
+    this.rollbackLineCoverage();
     return options;
 };
 
@@ -7486,14 +8628,19 @@ Scene.prototype.verifyOptionsMatch = function verifyOptionsMatch(prev, current) 
 
 // render the prompt and the radio buttons
 Scene.prototype.renderOptions = function renderOptions(groups, options, callback) {
-    for (var i = 0; i < options.length; i++) {
-      var option = options[i];
-      option.name = this.replaceVariables(option.name);
+    var self = this;
+    function replaceVars(options) {
+      for (var i = 0; i < options.length; i++) {
+        var option = options[i];
+        option.name = self.replaceVariables(option.name);
+        if (option.suboptions) replaceVars(option.suboptions);
+      }
     }
+    replaceVars(options);
     this.paragraph();
     printOptions(groups, options, callback);
 
-    if (this.debugMode) println(toJson(this.stats));
+    if (this.debugMode) println(computeCookie(this.stats, this.temps, this.lineNum, this.indent));
 
     if (this.finished) printFooter();
 };
@@ -7510,11 +8657,39 @@ Scene.prototype.page_break = function page_break(buttonName) {
     var self = this;
     printButton(buttonName, main, false,
       function() {
+        delayBreakEnd();
         self.finished = false;
         self.resetPage();
       }
     );
-    if (this.debugMode) println(toJson(this.stats));
+    if (this.debugMode) println(computeCookie(this.stats, this.temps, this.lineNum, this.indent));
+};
+
+Scene.prototype.page_break_advertisement = function pageBreakAdvertisement(line) {
+  if (line) throw new Error(this.lineMsg() + "*page_break_advertisement doesn't allow you to change the button message. This text will never be shown: " + line);
+  var self = this;
+  this.finished = true;
+  showFullScreenAdvertisementButton("Watch an Ad to Continue", function () {
+    self.page_break("");
+  }, function () {
+    delayBreakEnd();
+    self.finished = false;
+    self.skipFooter = false;
+    self.resetPage();
+  });
+};
+
+Scene.prototype.finish_advertisement = function finishAdvertisement(line) {
+  if (line) throw new Error(this.lineMsg() + "*finish_advertisement doesn't allow you to change the button message. This text will never be shown: " + line);
+  var self = this;
+  this.finished = true;
+  showFullScreenAdvertisementButton("Watch an Ad for the Next Chapter", function () {
+    self.finish("");
+  }, function () {
+    var nextSceneName = self.nav && nav.nextSceneName(self.name);
+    var scene = new Scene(nextSceneName, self.stats, self.nav, { debugMode: self.debugMode, secondaryMode: self.secondaryMode });
+    scene.resetPage();
+  });
 };
 
 // *line_break
@@ -7531,33 +8706,42 @@ Scene.prototype.line_break = function line_break() {
 };
 
 // *image
-// display named image //CJW edited to compensate for data uri images
 Scene.prototype.image = function image(data, invert) {
-    this.paragraph();
-    data = data || "";
-    data = this.replaceVariables(data);
-    var args = data.split(" ");
-    var source, alignment;
-    var alt = null;
-    if (args.length > 2) {
-      var source = args[0];
-      var alignment = args[1];
-      var alt = trim(args[2]);
+  this.paragraph();
+  data = data || "";
+  /* Don't apply the regex match to data:image values, it's far too slow */
+  var dataImage = false;
+  var dataImageVal;
+  if (data.match(/data:image/)) {
+    var dataImageEnd = data.indexOf(" ");
+    if (dataImageEnd >= 0) {
+      dataImageVal = data.substring(0, dataImageEnd);
+      data = ("CSIDE_DATA_IMG.png" + data.slice(dataImageEnd));
+    } else {
+      dataImageVal = data;
+      data = "CSIDE_DATA_IMG.png";
     }
-    else if (args.length > 1) {
-      var source = args[0];
-      var alignment = args[1];
-    }
-    else {
-      var source = data;
-    }
-    if (source === "") throw new Error(this.lineMsg()+"*image requires the file name of an image");
-    alignment = alignment || "center";
-    if (!/(right|left|center|none)/.test(alignment)) throw new Error(this.lineMsg()+"Invalid alignment, expected right, left, center, or none: " + data);
-    printImage(source, alignment, alt, invert);
-    if (this.verifyImage) this.verifyImage(source);
-    if (alignment == "none") this.prevLine = "text";
-    this.screenEmpty = false;
+    dataImage = true;
+  }
+  data = this.replaceVariables(data);
+  var match = /(\S+) (\S+)(.*)/.exec(data);
+  var source, alignment;
+  var alt = null;
+  if (match) {
+    var source = match[1];
+    var alignment = match[2];
+    var alt = trim(match[3]);
+  } else {
+    source = data;
+  }
+  if (source === "") throw new Error(this.lineMsg()+"*image requires the file name of an image");
+  if (source === "CSIDE_DATA_IMG.png") source = dataImageVal;
+  alignment = alignment || "center";
+  if (!/(right|left|center|none)/.test(alignment)) throw new Error(this.lineMsg()+"Invalid alignment, expected right, left, center, or none: " + data);
+  printImage(source, alignment, alt, invert);
+  if (this.verifyImage && !dataImage) this.verifyImage(source);
+  if (alignment == "none") this.prevLine = "text";
+  this.screenEmpty = false;
 };
 
 Scene.prototype.text_image = function textImage(data) {
@@ -7571,6 +8755,10 @@ Scene.prototype.sound = function sound(source) {
     if (this.verifyImage) this.verifyImage(source);
 };
 
+Scene.prototype.kindle_image = function kindle_image() {
+  // Do nothing on non-Kindle devices; show only on Kindle
+};
+
 Scene.prototype.youtube = function youtube(slug) {
   if (typeof printYoutubeFrame !== "undefined") {
     printYoutubeFrame(slug);
@@ -7578,6 +8766,14 @@ Scene.prototype.youtube = function youtube(slug) {
     this.screenEmpty = false;
   }
 }
+
+Scene.prototype.kindle_search = Scene.prototype.kindle_product = function kindle_search(data) {
+  var result = /^\((.+)\) ([^\)]+)/.exec(data);
+  if (!result) throw new Error(this.lineMsg()+"Invalid arguments: " + data);
+  var query = result[1];
+  var buttonName = result[2];
+  if ("undefined" != typeof kindleButton) kindleButton(this.target, query, buttonName);
+};
 
 // *link
 // Display URL with anchor text
@@ -7599,6 +8795,7 @@ Scene.prototype.link_button = function linkButton(data) {
     if (!result) throw new Error(this.lineMsg() + "invalid line; this line should have an URL: " + data);
     var href = result[1];
     var anchorText = trim(result[2]) || href;
+    this.paragraph();
     var target = this.target;
     if (!target) target = document.getElementById('text');
     printButton(anchorText, target, false, function() {
@@ -7640,24 +8837,38 @@ Scene.prototype.comment = function comment(line) {
     if (this.debugMode) println("*comment " + line);
 };
 
-Scene.prototype.advertisement = function advertisement() {
-  if (typeof isFullScreenAdvertisingSupported != "undefined" && isFullScreenAdvertisingSupported()) {
-    this.finished = true;
-    this.skipFooter = true;
-
-    var self = this;
-    showFullScreenAdvertisement(function() {
+Scene.prototype.advertisement = function advertisement(durationInSeconds) {
+  if (/^\s*\*delay_break/.test(this.lines[this.lineNum - 1])) {
+    throw new Error(this.lineMsg() + "*advertisement is not allowed immediately after *delay_break (*delay_break includes its own advertisement)");
+  }
+  if (this.getVar("choice_prerelease") || this.getVar("choice_is_steam")) return;
+  var self = this;
+  this.finished = true;
+  this.skipFooter = true;
+  startLoading();
+  checkPurchase("adfree", function(ok, result) {
+    doneLoading();
+    if (result.adfree) {
       self.finished = false;
       self.skipFooter = false;
-      self.resetPage();
-    });
-  }
-
+      self.execute();
+      return;
+    }
+    self.printLine("Come back later to play the next part of [i]${choice_title}[/i]!");
+    self.paragraph();
+    self.printLine("Or you can buy the game now to skip the wait.");
+    self.paragraph();
+    self.buyButton("adfree", "$1.99", null, "It");
+    self.delay_break(durationInSeconds || 300);
+  });
 };
 
 // *looplimit 5
 // The number of times a given line is allowed to be accessed
-Scene.prototype.looplimit = function looplimit() {}; // TODO looplimit
+Scene.prototype.looplimit_count = 1000;
+Scene.prototype.looplimit = function looplimit(count) {
+  this.looplimit_count = num(count, this.lineNum, this.name);
+};
 
 Scene.prototype.hide_reuse = function hide_reuse() {
   this.temps.choice_reuse = "hide";
@@ -7685,26 +8896,38 @@ Scene.prototype.print = function scene_print(expr) {
     this.printLine(value);
 };
 
+Scene.prototype.parseInputText = function parseInputText(line) {
+  var stack = this.tokenizeExpr(line);
+  var variable = this.evaluateReference(stack);
+  if ("undefined" === typeof this.temps[variable] && "undefined" === typeof this.stats[variable]) {
+    throw new Error(this.lineMsg() + "Non-existent variable '" + variable + "'");
+  }
+
+  var inputOptions = { long: false, allow_blank: false };
+  for (var i = 0; i < stack.length; i++) {
+    var token = stack[i];
+    if (token.name !== "VAR") {
+      throw new Error(this.lineMsg() + "Couldn't understand this input_text line");
+    }
+    var option = token.value;
+    if (typeof inputOptions[option] === "undefined") {
+      throw new Error(this.lineMsg() + "Couldn't understand this input_text option: " + option);
+    }
+    inputOptions[option] = true;
+  }
+  return {variable:variable, inputOptions:inputOptions};
+}
+
 // *input_text var
 // record text typed by the user and store it in the specified variable
 Scene.prototype.input_text = function input_text(line) {
-    var stack = this.tokenizeExpr(line);
-    var variable = this.evaluateReference(stack);
-    if ("undefined" === typeof this.temps[variable] && "undefined" === typeof this.stats[variable]) {
-      throw new Error(this.lineMsg() + "Non-existent variable '"+variable+"'");
-    }
+    var result = this.parseInputText(line);
+    var variable = result.variable;
 
-    var inputType = "text";
-    if (stack.length == 1 && stack[0].name == "VAR" && stack[0].value == "long") {
-      inputType = "textarea";
-    }
-    if ("undefined" === typeof this.temps[variable] && "undefined" === typeof this.stats[variable]) {
-      throw new Error(this.lineMsg() + "Non-existent variable '"+variable+"'");
-    }
     this.finished = true;
     this.paragraph();
     var self = this;
-    printInput(this.target, inputType, function(value) {
+    printInput(this.target, result.inputOptions, function(value) {
       safeCall(self, function() {
         value = trim(String(value));
         value = value.replace(/\n/g, "[n/]");
@@ -7714,7 +8937,7 @@ Scene.prototype.input_text = function input_text(line) {
         self.resetPage();
       });
     });
-    if (this.debugMode) println(toJson(this.stats));
+    if (this.debugMode) println(computeCookie(this.stats, this.temps, this.lineNum, this.indent));
 };
 
 // *input_number var min max
@@ -7762,7 +8985,7 @@ Scene.prototype.input_number = function input_number(data) {
     this.finished = true;
     this.paragraph();
     var self = this;
-    printInput(this.target, "number", function(value) {
+    printInput(this.target, {numeric: true}, function(value) {
       safeCall(self, function() {
         var numValue = parseFloat(""+value);
         if (isNaN(numValue)) {
@@ -7787,7 +9010,7 @@ Scene.prototype.input_number = function input_number(data) {
         self.resetPage();
       });
     }, minimum, maximum, intRequired);
-    if (this.debugMode) println(toJson(this.stats));
+    if (this.debugMode) println(computeCookie(this.stats, this.temps, this.lineNum, this.indent));
 };
 
 // *script code
@@ -7817,7 +9040,7 @@ Scene.prototype.validateVariable = function validateVariable(variable) {
     if (!/^\w+$/.test(variable)) {
         throw new Error(this.lineMsg()+"Invalid variable name: '" + variable + "'");
     }
-    if (/^(and|or|true|false)$/.test(variable)) throw new Error(this.lineMsg()+"Invalid variable name, '" + variable + "' is a reserved word");
+    if (/^(and|or|true|false|scene|scenename)$/i.test(variable)) throw new Error(this.lineMsg()+"Invalid variable name, '" + variable + "' is a reserved word");
     if (/^choice_/.test(variable)) throw new Error(this.lineMsg()+"Invalid variable name, variables may not start with 'choice_'; this is a reserved prefix");
 };
 
@@ -7972,6 +9195,7 @@ Scene.prototype.more_games = function more_games(now) {
     return;
   }
   var self = this;
+  this.paragraph();
   var target = this.target;
   if (!target) target = document.getElementById('text');
   var button = printButton("Play More Games Like This", target, false,
@@ -7990,7 +9214,7 @@ Scene.prototype.ending = function ending() {
     var groups = [""];
     options = [];
     options.push({name:"Play again.", group:"choice", restart:true});
-    options.push({name:"Play more games like this.", group:"choice", moreGames:true});
+    if (!window.isOmnibusApp) options.push({name:"Play more games like this.", group:"choice", moreGames:true});
     options.push({name:"Share this game with friends.", group:"choice", share:true});
     options.push({name:"Email me when new games are available.", group:"choice", subscribe:true});
 
@@ -7999,14 +9223,7 @@ Scene.prototype.ending = function ending() {
       printFollowButtons();
       self.renderOptions([""], options, function(option) {
         if (option.restart) {
-          clearScreen(function() {
-            self.restart();
-            if (self.name === "startup") {
-              self.finished = false;
-              self.resetPage();
-            }
-          });
-          return;
+          return restartGame();
         } else if (option.moreGames) {
           self.more_games("now");
           if (typeof curl != "undefined") curl();
@@ -8025,17 +9242,18 @@ Scene.prototype.ending = function ending() {
 };
 
 Scene.prototype.restart = function restart() {
-  if (this.secondaryMode && this.secondaryMode != "stats") {
-    throw new Error(this.lineMsg() + "Cannot *restart in " + this.secondaryMode + " mode");
-  }
   delayBreakEnd();
-  this.reset();
-  var startupScene = this.nav.getStartupScene();
-  if (this.secondaryMode == "stats") {
-    this.redirect_scene(startupScene);
+  if (this.secondaryMode) {
+    if (this.secondaryMode == "stats") {
+      this.reset();
+      this.redirect_scene(this.nav.getStartupScene());
+    } else {
+      throw new Error(this.lineMsg() + "Cannot *restart in " + this.secondaryMode + " mode");
+    }
   } else {
-    this.goto_scene(startupScene);
+    restartGame();
   }
+  this.finished = true;
 };
 
 /* Subscribe options, in JSON format.
@@ -8379,16 +9597,12 @@ Scene.prototype.save_game = function save_game(destinationSceneName) {
     saveName.type="text";
     saveName.name="saveName";
     saveName.setAttribute("placeholder", "Type a name for your saved game");
-    saveName.setAttribute("style", "font-size: 25px; width: 90%;");
+    saveName.setAttribute("style", "display:block; font-size: 25px; width: 90%; margin: 1rem 0");
     form.appendChild(saveName);
 
     var hideEmailForm = false;
     // hideEmailForm = _global.automaticCloudStorage;
-    if (hideEmailForm) {
-      println("", form);
-    } else {
-      println("", form);
-      println("", form);
+    if (!hideEmailForm) {
       println("Please login to the choiceofgames.com save system with your email address below.", form);
 
       var emailInput = document.createElement("input");
@@ -8397,11 +9611,8 @@ Scene.prototype.save_game = function save_game(destinationSceneName) {
       emailInput.name="email";
       emailInput.value=defaultEmail;
       emailInput.setAttribute("placeholder", "you@example.com");
-      emailInput.setAttribute("style", "font-size: 25px; width: 90%;");
+      emailInput.setAttribute("style", "display:block; font-size: 25px; width: 90%; margin: 1rem 0");
       form.appendChild(emailInput);
-
-      println("", form);
-      println("", form);
 
       var subscribeLabel = document.createElement("label");
       subscribeLabel.setAttribute("for", "subscribeBox");
@@ -8415,7 +9626,6 @@ Scene.prototype.save_game = function save_game(destinationSceneName) {
       form.appendChild(subscribeLabel);
     }
 
-    println("", form);
     var target = this.target;
     if (!target) target = document.getElementById('text');
     target.appendChild(form);
@@ -8465,6 +9675,7 @@ Scene.prototype.save_game = function save_game(destinationSceneName) {
         }
 
         var shouldSubscribe = subscribeBox.checked;
+        var subscribe = shouldSubscribe && window.isHeartsChoice ? "hc" : "cog";
         var email = trim(emailInput.value);
         if (!/^\S+@\S+\.\S+$/.test(email)) {
           messageText = document.createTextNode("Sorry, \""+email+"\" is not an email address.  Please type your email address again.");
@@ -8478,7 +9689,7 @@ Scene.prototype.save_game = function save_game(destinationSceneName) {
             saveCookie(function() {
               recordSave(slot, function() {
                 startLoading();
-                submitRemoteSave(slot, email, shouldSubscribe, function(ok) {
+                submitRemoteSave(slot, email, subscribe, function(ok) {
                   doneLoading();
                   if (!ok) {
                     asyncAlert("Couldn't upload your saved game to choiceofgames.com. You can try again later from the Restore menu.", function() {
@@ -8823,7 +10034,7 @@ Scene.prototype.stat_chart = function stat_chart() {
       div.appendChild(span0);
       span = document.createElement("span");
       span.setAttribute("style", "float: right");
-      printx(row.opposed_label+": "+(100-value)+"%\u00a0\u00a0", span);
+      printx(this.replaceVariables(row.opposed_label)+": "+(100-value)+"%\u00a0\u00a0", span);
       div.appendChild(span);
       statValue = document.createElement("div");
       setClass(statValue, "statValue");
@@ -9015,16 +10226,13 @@ Scene.prototype.delay_break = function(durationInSeconds) {
     target = document.createElement("p");
     document.getElementById('text').appendChild(target);
   }
+  this.paragraph();
   var self = this;
   delayBreakStart(function(delayStart) {
     window.blockRestart = true;
     var endTimeInSeconds = durationInSeconds * 1 + delayStart * 1;
     showTicker(target, endTimeInSeconds, function() {
-      printButton("Next", target, false, function() {
-        delayBreakEnd();
-        self.finished = false;
-        self.resetPage();
-      });
+      self.page_break_advertisement();
     });
     printFooter();
   });
@@ -9070,6 +10278,11 @@ Scene.prototype.delay_ending = function(data) {
         var emailMe = {name: "Email me when new games are available."};
         options.push(emailMe);
 
+        function restartNow() {
+          window.blockRestart = false;
+          restartGame();
+        }
+
         self.paragraph();
         printOptions([""], options, function(option) {
           if (option == playMoreGames) {
@@ -9078,27 +10291,19 @@ Scene.prototype.delay_ending = function(data) {
           } else if (option == emailMe) {
             subscribeLink();
           } else if (option == upgradeSkip) {
-            purchase("adfree", function() {
-              safeCall(self, function() {
-                self.restart();
-              });
-            });
+            purchase("adfree", restartNow);
           } else if (option == skipOnce) {
-            purchase("skiponce", function() {
-              safeCall(self, function() {
-                self.restart();
-              });
-            });
+            purchase("skiponce", restartNow);
           } else if (option == restorePurchasesOption) {
             restorePurchases("adfree", function() {
               clearScreen(loadAndRestoreGame);
             });
           } else {
-            self.restart();
+            return restartGame();
           }
         });
 
-        var target = document.getElementById("0").parentElement;
+        var target = document.querySelector(".choice label");
 
         delayBreakStart(function(delayStart) {
           window.blockRestart = true;
@@ -9166,6 +10371,7 @@ Scene.prototype["if"] = function scene_if(line) {
 Scene.prototype.skipTrueBranch = function skipTrueBranch(inElse) {
   var startIndent = this.indent;
   var nextIndent = null;
+  var line;
   while (isDefined(line = this.lines[++this.lineNum])) {
       this.rollbackLineCoverage();
       if (!trim(line)) continue;
@@ -9176,7 +10382,7 @@ Scene.prototype.skipTrueBranch = function skipTrueBranch(inElse) {
       }
       if (indent <= startIndent) {
           // true block is over
-          var parsed;
+          var parsed = null;
           // check to see if this is an *else or *elseif
           if (indent == startIndent) parsed = /^\s*\*(\w+)(.*)/.exec(line);
           if (!parsed || inElse) {
@@ -9200,6 +10406,8 @@ Scene.prototype.skipTrueBranch = function skipTrueBranch(inElse) {
           } else if (/^else?if$/.test(command)) {
               this.lineNum = this.lineNum; // code coverage
               this["if"](data);
+          } else if ("comment" == command) {
+              continue;
           } else {
               this.lineNum = this.previousNonBlankLineNum();
               this.rollbackLineCoverage();
@@ -9217,9 +10425,9 @@ Scene.prototype.skipTrueBranch = function skipTrueBranch(inElse) {
 };
 
 Scene.prototype["else"] = Scene.prototype.elsif = Scene.prototype.elseif = function scene_else(data, inChoice) {
-    // Authors can avoid using goto to get out of an if branch with:  *set implicit_control_flow true
+    // Authors can avoid using goto to get out of an if branch with:  *create implicit_control_flow true
     // This avoids the error message at the end of the function.
-    if (inChoice || this.stats["implicit_control_flow"]) {
+    if (inChoice || this.getVar("implicit_control_flow")) {
       this.skipTrueBranch(true);
       return;
     }
@@ -9236,7 +10444,7 @@ Scene.prototype.tokenizeExpr = function tokenizeExpr(str) {
         var matched = false;
         for (var i = 0; i < tokenTypesLength; i++) {
             var tokenType = tokenTypes[i];
-            var token = tokenType.test(str, this.lineNum+1);
+            var token = tokenType.test(str, this.lineNum+1, this);
             if (token) {
                 matched = true;
                 str = str.substr(token.length);
@@ -9300,6 +10508,10 @@ Scene.prototype.evaluateExpr = function evaluateExpr(stack, parenthetical) {
     if (token.value === '%') {
       this.warning("this is a bare % sign, which should be replaced with %+, %-, or modulo if you're really advanced.");
       this.warning("For more details on modulo, see: https://forum.choiceofgames.com/t/21176");
+    }
+
+    if (!stack[0]) {
+      throw new Error(this.lineMsg() + "Invalid expression at char "+token.pos+", expected something after a "+token.value);
     }
 
     if (stack[0].func == "auto") {
@@ -9715,6 +10927,8 @@ Scene.prototype.parseSceneList = function parseSceneList() {
 };
 
 Scene.prototype.title = function scene_title(title) {
+  this.stats.choice_title = trim(title);
+  if (this.nav) this.nav.startingStats.choice_title = trim(title);
   if (typeof changeTitle != "undefined") {
     changeTitle(title);
   }
@@ -9735,18 +10949,19 @@ Scene.prototype.achievement = function scene_achievement(data) {
   var achievementName = parsed[1];
   if (!/^[a-z][a-z0-9_]+$/.test(achievementName)) throw new Error(this.lineMsg()+"Invalid achievement name: " +achievementName);
 
+  if (!this.parsedAnAchievment && Object.keys(this.nav.achievements).length > 0) {
+    // blow away pre-existing mygame.js achievements
+    this.nav.achievements = {};
+    this.nav.achievementList = [];
+    this.achievementTotal = 0;
+    this.seenAchievementTitles = {};
+  }
+
+  this.parsedAnAchievment = true;
 
   if (this.nav.achievements.hasOwnProperty(achievementName)) {
-    // this achievement already exists...
-    if (!this.nav.achievements[achievementName].lineNumber) {
-      // blow away pre-existing mygame.js achievements
-      this.nav.achievements = {};
-      this.nav.achievementList = [];
-    } else if (this.nav.achievements[achievementName].lineNumber != (this.lineNum+1)) {
-      // don't allow redefining achievements
-      // restarting/randomtest will naturally re-run *achievements; ignore those
-      throw new Error(this.lineMsg()+"Achievement "+achievementName+" already defined on line " + this.nav.achievements[achievementName].lineNumber);
-    }
+    var preExisting = this.nav.achievements[achievementName];
+    throw new Error(this.lineMsg()+"Achievement "+achievementName+" already defined on line " + this.nav.achievements[achievementName].lineNumber);
   }
 
   var lineNumber = this.lineNum+1;
@@ -9871,11 +11086,47 @@ Scene.prototype.feedback = function scene_feedback() {
     var value = "null";
     var numberMatch = /^(\d+)/.exec(option.name);
     if (numberMatch) value = numberMatch[1]*1;
-    if (window.storeName) xhrAuthRequest("POST", "feedback", function(ok, response) {
-      if (window.console) console.log("ok", ok, response);
-    }, "game", window.storeName, "platform", platformCode(), "rating", value);
-    self.finished = false;
-    self.resetPage();
+    if (!window.storeName) {
+      self.finished = false;
+      self.resetPage();
+      return;
+    }
+
+    var postFeedback = function() {
+      xhrAuthRequest("POST", "feedback", function(ok, response) {
+        if (window.console) console.log("ok", ok, response);
+      }, "game", window.storeName, "platform", platformCode(), "rating", value);
+      if (/^(9|10)/.test(option.name)) {
+        if (isReviewSupported()) {
+          return clearScreen(function() {
+            self.printLine("Great! ");
+            promptForReview();
+            self.screenEmpty = false;
+            self.prevLine = "text";
+            self.page_break();
+            printFooter();
+          });
+        }
+      }
+      self.finished = false;
+      self.resetPage();
+    }
+
+    if (value == "null") {
+      self.finished = false;
+      self.resetPage();
+      return;
+    }
+
+    isRegistered(function(registered) {
+      if (registered) {
+        postFeedback();
+      } else {
+        clearScreen(function() {
+          loginForm(main, 1/*optional*/, "Please sign in to have your vote counted!", postFeedback);
+        });
+      }
+    });
   });
   this.finished = true;
 };
@@ -9910,6 +11161,39 @@ Scene.prototype.track_event = function track_event(data) {
   }
 }
 
+Scene.prototype.ai = function ai(data) {}
+
+Scene.prototype.config = function config(data) {
+    var stack = this.tokenizeExpr(data);
+    var variable = this.evaluateReference(stack);
+    if ("undefined" === typeof this.temps[variable] && "undefined" === typeof this.stats[variable]) {
+      throw new Error(this.lineMsg() + "Non-existent variable '"+variable+"'");
+    }
+    if (stack.length === 0) throw new Error(this.lineMsg()+"Invalid set instruction, no expression specified: " + line);
+    var value = this.evaluateExpr(stack);
+    this.setVar(variable, value);
+    if ("undefined" !== typeof remoteConfig && !this.randomtest && !this.quicktest) {
+      this.finished = true;
+      this.skipFooter = true;
+      var self = this;
+      remoteConfig(variable, function(result) {
+        if (result !== null) self.setVar(variable, result);
+        self.finished = false;
+        self.skipFooter = false;
+        self.execute();
+      })
+    }
+};
+
+Scene.prototype.ifid = function ifid(id) {
+  if (!/^\w{8}-\w{4}-\w{4}-\w{4}-\w{12}$/.test(id)) {
+    throw new Error(this.lineMsg() + "Invalid IFID. It should have five parts, like \"a0a0a0a0-a0a0-a0a0-a0a0-a0a0a0a0a0a0\: " + id);
+  }
+  if (!/^[A-F0-9\-]{36}$/i.test(id)) {
+    throw new Error(this.lineMsg() + "Invalid IFID. It should contain only numbers, letters A-F, and dashes: " + id);
+  }
+}
+
 Scene.prototype.lineMsg = function lineMsg() {
     return this.name + " line " + (this.lineNum+1) + ": ";
 };
@@ -9932,7 +11216,7 @@ Scene.tokens = [
     {name:"CLOSE_SQUARE", test:function(str){ return Scene.regexpMatch(str,/^\]/); } },
     {name:"FUNCTION", test:function(str){ return Scene.regexpMatch(str,/^(not|round|timestamp|log|length|auto)\s*\(/); } },
     {name:"NUMBER", test:function(str){ return Scene.regexpMatch(str,/^\d+(\.\d+)?\b/); } },
-    {name:"STRING", test:function(str, line) {
+    {name:"STRING", test:function(str, line, sceneObj) {
             var i;
             if (!/^\"/.test(str)) return null;
             for (i = 1; i < str.length; i++) {
@@ -9943,10 +11227,14 @@ Scene.tokens = [
                     return str.substring(0,i+1);
                 }
             }
-            throw new Error("line "+line+": Invalid string, open quote with no close quote: " + str);
+            var errMessage = "line " + line + ": ";
+            if (sceneObj) {
+              errMessage = sceneObj.lineMsg();
+            }
+            throw new Error(errMessage+"Invalid string, open quote with no close quote: " + str);
         }
     },
-    {name:"CURLY_QUOTE", test:function(str){ return Scene.regexpMatch(str,/^[\u201c|\u201d]/); } },
+    {name:"CURLY_QUOTE", test:function(str){ return Scene.regexpMatch(str,/^[\u201c\u201d]/); } },
     {name:"WHITESPACE", test:function(str){ return Scene.regexpMatch(str,/^\s+/); } },
     {name:"NAMED_OPERATOR", test:function(str){ return Scene.regexpMatch(str,/^(and|or|modulo)\b/); } },
     {name:"VAR", test:function(str){ return Scene.regexpMatch(str,/^\w*/); } },
@@ -9958,33 +11246,45 @@ Scene.tokens = [
     //
 ];
 Scene.operators = {
-    "+": function add(v1,v2,line) { return num(v1,line) + num(v2,line); },
-    "-": function subtract(v1,v2,line) { return num(v1,line) - num(v2,line); },
-    "*": function multiply(v1,v2,line) { return num(v1,line) * num(v2,line); },
-    "/": function divide(v1,v2,line) {
-      v2 = num(v2, line);
-      if (v2 === 0) throw new Error("line "+line+": can't divide by zero");
-      return num(v1,line) / num(v2,line);
+    "+": function add(v1,v2,line,sceneObj) { var name = null; if (sceneObj) name = sceneObj.name; return num(v1,line,name) + num(v2,line,name); },
+    "-": function subtract(v1,v2,line,sceneObj) { var name = null; if (sceneObj) name = sceneObj.name; return num(v1,line,name) - num(v2,line,name); },
+    "*": function multiply(v1,v2,line,sceneObj) { var name = null; if (sceneObj) name = sceneObj.name; return num(v1,line,name) * num(v2,line,name); },
+    "/": function divide(v1,v2,line,sceneObj) {
+      var name = null; if (sceneObj) name = sceneObj.name; 
+      v2 = num(v2, line, name);
+      if (v2 === 0) throw new Error(name+" line "+line+": can't divide by zero");
+      return num(v1,line,name) / num(v2,line,name);
     },
-    "%": function modulo(v1,v2,line) { return num(v1,line) % num(v2,line); },
-    "^": function exponent(v1,v2,line) { return Math.pow(num(v1,line), num(v2,line)); },
+    "^": function exponent(v1,v2,line,sceneObj) { var name = null; if (sceneObj) name = sceneObj.name; return Math.pow(num(v1,line,name), num(v2,line,name)); },
     "&": function concatenate(v1,v2) { return [v1,v2].join(""); },
-    "#": function charAt(v1,v2,line) {
-      var i = num(v2,line);
+    "#": function charAt(v1,v2,line,sceneObj) {
+      var name = null;
+      var errMessage = "line " + line + ": ";
+      if (sceneObj) {
+        name = sceneObj.name;
+        errMessage = sceneObj.lineMsg();
+      }
+      var i = num(v2,line,name);
       if (i < 1) {
-        throw new Error("line "+line+": There is no character at position " + i + "; the position must be greater than or equal to 1.");
+        throw new Error(errMessage+"There is no character at position " + i + "; the position must be greater than or equal to 1.");
       }
       if (i > String(v1).length) {
-        throw new Error("line "+line+": There is no character at position " + i + ". \""+v1+"\" is only " + String(v1).length + " characters long.");
+        throw new Error(errMessage+"There is no character at position " + i + ". \""+v1+"\" is only " + String(v1).length + " characters long.");
       }
       return String(v1).charAt(i-1);
     },
-    "%+": function fairAdd(v1, v2, line) {
-        v1 = num(v1,line);
-        v2 = num(v2,line);
+    "%+": function fairAdd(v1, v2, line, sceneObj) {
+        var name = null;
+        var errMessage = "line " + line + ": ";
+        if (sceneObj) {
+          name = sceneObj.name;
+          errMessage = sceneObj.lineMsg();
+        }
+        v1 = num(v1,line,name);
+        v2 = num(v2,line,name);
         var validValue = (v1 >= 0 && v1 <= 100);
         if (!validValue) {
-            throw new Error("line "+line+": Can't fairAdd to non-percentile value: " + v1);
+            throw new Error(errMessage+"Can't fairAdd to non-percentile value: " + v1);
         }
         if (v2 > 0) {
           var multiplier = (100 - v1) / 100;
@@ -10002,40 +11302,45 @@ Scene.operators = {
           return value;
         }
     },
-    "%-": function fairSubtract(v1, v2, line) {
-        v2 = num(v2,line);
-        return Scene.operators["%+"](v1,0-v2,line);
+    "%-": function fairSubtract(v1, v2, line, sceneObj) {
+        var name = null; if (sceneObj) name = sceneObj.name; 
+        v2 = num(v2,line,name);
+        return Scene.operators["%+"](v1,0-v2,line,sceneObj);
     },
     "=": function equals(v1,v2) { return v1 == v2 || String(v1) == String(v2); },
-    "<": function lessThan(v1,v2,line) {
-        return num(v1,line) < num(v2,line); },
-    ">": function greaterThan(v1,v2,line) { return num(v1,line) > num(v2,line); },
-    "<=": function lessThanOrEquals(v1,v2,line) { return num(v1,line) <= num(v2,line); },
-    ">=": function greaterThanOrEquals(v1,v2,line) { return num(v1,line) >= num(v2,line); },
+    "<": function lessThan(v1,v2,line,sceneObj) {
+        var name = null; if (sceneObj) name = sceneObj.name; 
+        return num(v1,line,name) < num(v2,line,name); },
+    ">": function greaterThan(v1,v2,line,sceneObj) { var name = null; if (sceneObj) name = sceneObj.name; return num(v1,line,name) > num(v2,line,name); },
+    "<=": function lessThanOrEquals(v1,v2,line,sceneObj) { var name = null; if (sceneObj) name = sceneObj.name; return num(v1,line,name) <= num(v2,line,name); },
+    ">=": function greaterThanOrEquals(v1,v2,line,sceneObj) { var name = null; if (sceneObj) name = sceneObj.name; return num(v1,line,name) >= num(v2,line,name); },
     "!=": function notEquals(v1,v2) { return v1 != v2; },
-    "and": function and(v1, v2, line) {
-        return bool(v1,line) && bool(v2,line);
+    "and": function and(v1, v2, line, sceneObj) {
+        var name = null; if (sceneObj) name = sceneObj.name; 
+        return bool(v1,line,name) && bool(v2,line,name);
     },
-    "or": function or(v1, v2, line) {
-        return bool(v1,line) || bool(v2,line);
+    "or": function or(v1, v2, line, sceneObj) {
+        var name = null; if (sceneObj) name = sceneObj.name; 
+        return bool(v1,line,name) || bool(v2,line,name);
     },
-    "modulo": function modulo(v1,v2,line) { return num(v1,line) % num(v2,line); },
+    "modulo": function modulo(v1,v2,line,sceneObj) { var name = null; if (sceneObj) name = sceneObj.name; return num(v1,line,name) % num(v2,line,name); },
 };
 
-Scene.initialCommands = {"create":1,"scene_list":1,"title":1,"author":1,"comment":1,"achievement":1,"product":1};
+Scene.initialCommands = {"create":1,"create_array":1,"scene_list":1,"title":1,"author":1,"comment":1,"achievement":1,"product":1,"ifid":1};
 
 Scene.validCommands = {"comment":1, "goto":1, "gotoref":1, "label":1, "looplimit":1, "finish":1, "abort":1,
-    "choice":1, "create":1, "temp":1, "delete":1, "set":1, "setref":1, "print":1, "if":1, "rand":1,
+    "choice":1, "create":1, "create_array": 1, "temp":1, "temp_array": 1, "delete":1, "delete_array":1, "set":1, "setref":1, "print":1, "if":1, "rand":1,
     "page_break":1, "line_break":1, "script":1, "else":1, "elseif":1, "elsif":1, "reset":1,
     "goto_scene":1, "fake_choice":1, "input_text":1, "ending":1, "share_this_game":1, "stat_chart":1,
     "subscribe":1, "show_password":1, "gosub":1, "return":1, "hide_reuse":1, "disable_reuse":1, "allow_reuse":1,
     "check_purchase":1,"restore_purchases":1,"purchase":1,"restore_game":1,"advertisement":1,
-    "feedback":1,
-    "save_game":1,"delay_break":1,"image":1,"link":1,"input_number":1,"goto_random_scene":1,
+    "kindle_search":1,"kindle_product":1,"feedback":1,
+    "save_game":1,"delay_break":1,"image":1,"kindle_image":1,"link":1,"input_number":1,"goto_random_scene":1,
     "restart":1,"more_games":1,"delay_ending":1,"end_trial":1,"login":1,"achieve":1,"scene_list":1,"title":1,
     "bug":1,"link_button":1,"check_registration":1,"sound":1,"author":1,"gosub_scene":1,"achievement":1,
     "check_achievements":1,"redirect_scene":1,"print_discount":1,"purchase_discount":1,"track_event":1,
-    "timer":1,"youtube":1,"product":1,"text_image":1,"params":1
+    "timer":1,"youtube":1,"product":1,"text_image":1,"ai":1,"params":1,"config":1,"ifid":1,
+    "page_break_advertisement":1, "finish_advertisement":1
     };
 /*
  * Copyright 2010 by Dan Fabulich.
@@ -10057,7 +11362,7 @@ Scene.validCommands = {"comment":1, "goto":1, "gotoref":1, "label":1, "looplimit
  */
 function SceneNavigator(sceneList) {
     this.setSceneList(sceneList);
-    this.startingStats = {implicit_control_flow:false};
+    this.startingStats = {};
 }
 
 SceneNavigator.prototype.setSceneList = function setSceneList(sceneList) {
@@ -10150,17 +11455,19 @@ SceneNavigator.prototype.loadProducts = function(productArray, purchaseMap) {
 nav = new SceneNavigator(["startup"]);
 stats = {};
 
-</script><style>body {
-  position: relative;
-  max-width: 680px;
-  min-height: 100vh; /* keep iOS address bar from popping in and out */
-  _width:expression(this.scrollWidth > 680 ? "680px" : "auto");
-  font-size: 100%;  /* reset for CWS */
+</script><style>html {
   font: -apple-system-body; /* we'll override the font, but keep the size from iOS dynamic text sizing */
+}
+
+body {
+  position: relative;
+  max-width: 80ch;
+  min-height: 100vh; /* keep iOS address bar from popping in and out */
+  font-size: 100%;  /* reset for CWS */
   font-family: Georgia,"Times New Roman",serif;
   background-color: #F7F4F1;
   color: rgba(0, 0, 0, 0.85);
-  margin: 8px auto;
+  margin: 1ch auto;
   padding: 0;
   -webkit-user-select: text; /* selectable text for Chrome app support */
   transition-property: background-color, color;
@@ -10184,7 +11491,7 @@ a {
   position: absolute; /* so containers can overlap */
   left: 0;
   right: 0;
-  margin: 0 8px;
+  margin: 0 1ch;
   animation-duration: 0.5s;
   -webkit-animation-duration: 0.5s;
   transition-property: opacity;
@@ -10234,12 +11541,17 @@ a {
   max-width: 100%;
 }
 
+/*credits*/
+#main.container img {
+  max-width: 100%;
+}
+
 .statBar {
   background-color: #949291;
-  height: 2em;
-  line-height: 2em;
-  margin: 4px 0;
-  width: 300px;
+  height: 2rem;
+  line-height: 2rem;
+  margin: 0.5ch 0;
+  width: 20rem;
   max-width: 100%;
   color: #f7f4f1;
   position: relative; /* to allow absolute positioned value */
@@ -10273,18 +11585,29 @@ table {
   /* width will be determined at runtime, 0-100% */
 }
 
+.choice {
+  margin: 1rem 0;
+}
+
+.choice > div {
+  position: relative; /* so the .shuttle can be positioned absolutely within it */
+  min-height: 1.25cm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-color:#a9acaf;
+  border-style:solid;
+  border-width: 1px 1px 0px 1px;
+}
+
 .choice label{
-    position: relative; /* so the .shuttle can be positioned absolutely within it */
     transition-property: background-color, color;
     transition-duration: 0.1s;
     -webkit-transition-property: background-color, color;
     -webkit-transition-duration: 0.1s;
     -webkit-tap-highlight-color: transparent;
-    padding: 11px 8px 12px;
+    padding: 0.5em 1ch;
     display:block;
-    border-color:#a9acaf;
-    border-style:solid;
-    border-width: 1px 1px 0px 1px
 }
 
 .shuttle {
@@ -10317,13 +11640,13 @@ table {
 }
 
 @keyframes shuttlefadeout {
-  from {opacity: 0.25; transform: translateX(-403%);} /* borders, maybe? */
-  to {opacity: 0; transform: translateX(-403%);}
+  from {opacity: 0.25; transform: translateX(-401%);} /* borders, maybe? */
+  to {opacity: 0; transform: translateX(-401%);}
 }
 
 @keyframes shuttleslide {
   from { opacity: 0.25; transform: translateX(0);}
-  to { opacity: 0.25; transform: translateX(-403%); }
+  to { opacity: 0.25; transform: translateX(-401%); }
 }
 
 @-webkit-keyframes shuttlefadein {
@@ -10332,13 +11655,13 @@ table {
 }
 
 @-webkit-keyframes shuttlefadeout {
-  from {opacity: 0.25; -webkit-transform: translateX(-403%);} /* borders, maybe? */
-  to {opacity: 0; -webkit-transform: translateX(-403%);}
+  from {opacity: 0.25; -webkit-transform: translateX(-401%);} /* borders, maybe? */
+  to {opacity: 0; -webkit-transform: translateX(-401%);}
 }
 
 @-webkit-keyframes shuttleslide {
   from { opacity: 0.25; -webkit-transform: translateX(0);}
-  to { opacity: 0.25; -webkit-transform: translateX(-403%); }
+  to { opacity: 0.25; -webkit-transform: translateX(-401%); }
 }
 
 .selected {
@@ -10346,27 +11669,20 @@ table {
   background-color: #007AFF;
 }
 
-.choice .firstChild{
+.choice>div:first-child{
     border-top-width:1px;
-    -webkit-border-top-right-radius:8px;
-    -webkit-border-top-left-radius:8px;
-    border-top-right-radius:8px;
-    border-top-left-radius:8px;
+    -webkit-border-top-right-radius:1ch;
+    -webkit-border-top-left-radius:1ch;
+    border-top-right-radius:1ch;
+    border-top-left-radius:1ch;
 }
 /* IE doesn't support label:last-child */
-.choice .lastChild{
+.choice>div:last-child{
     border-bottom-width:1px;
-    -webkit-border-bottom-right-radius:8px;
-    -webkit-border-bottom-left-radius:8px;
-    -moz-border-radius:0px 0px 8px 8px;
-    border-bottom-right-radius:8px;
-    border-bottom-left-radius:8px;
-}
-.choice .onlyChild{
-    border-width:1px;
-    -webkit-border-radius:8px;
-    -moz-border-radius:8px;
-    border-radius:8px;
+    -webkit-border-bottom-right-radius:1ch;
+    -webkit-border-bottom-left-radius:1ch;
+    border-bottom-right-radius:1ch;
+    border-bottom-left-radius:1ch;
 }
 
 .choice .noBorder {
@@ -10374,7 +11690,7 @@ table {
 }
 
 input[type="radio"], input[type="checkbox"] {
-  margin-right: 8px;
+  margin-right: 1ch;
 }
 
 .saveGame>label {
@@ -10395,6 +11711,10 @@ input[type=email],input[type=password] {
   margin: 2px 0;
 }
 
+button {
+  font-size: 100%;
+}
+
 .next {
     clear: both;
     display:block;
@@ -10402,7 +11722,7 @@ input[type=email],input[type=password] {
     font-size:1.5em;
     font-weight:bolder;
     font-family: -apple-system, sans-serif; /* reset, for Android */
-    margin-bottom: 1rem; /* reset button margin */
+    margin: 1rem 0; /* reset button margin */
     -webkit-appearance: none; /* Safari, don't override my CSS styles */
     color: #f7f4f1; /* Match background color */ 
     background-color: #626160;

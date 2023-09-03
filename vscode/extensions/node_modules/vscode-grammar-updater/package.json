@@ -1,0 +1,30 @@
+{
+  "name": "vscode-grammar-updater",
+  "version": "1.1.0",
+  "description": "Utility to update TextMate grammars that are part of VSCode language extensions",
+  "main": "./index.js",
+  "bin": "./bin.js",
+  "types": "./index.d.ts",
+  "author": "Microsoft Corporation",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microsoft/vscode-grammar-updater"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/microsoft/vscode/issues"
+  },
+  "dependencies": {
+    "fast-plist": "0.1.2",
+    "cson-parser": "^4.0.9"
+  },
+  "devDependencies": {
+    "@types/node": "^10.12.12",
+    "typescript": "^4.6.2"
+  },
+  "scripts": {
+    "generate-typings": "tsc -p jsconfig.json",
+    "prepublish": "npm run generate-typings",
+    "postversion": "git push && git push --tags"
+  }
+}
